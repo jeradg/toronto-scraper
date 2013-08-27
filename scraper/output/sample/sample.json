@@ -20,7 +20,7 @@
             "activities": [
               {
                 "activity": "Lane Swim",
-                "note": "13yrs and over",
+                "age": "13yrs and over",
                 "sessions": [
                   {
                     "startTime": "08:00",
@@ -43,12 +43,12 @@
               },
               {
                 "activity": "Leisure Swim: Preschool",
-                "note": "up to 5yrs",
+                "age": "up to 5yrs",
                 "sessions": []
               },
               {
                 "activity": "Lane Swim: Older Adult",
-                "note": "60yrs and over",
+                "age": "60yrs and over",
                 "sessions": [
                   {
                     "startTime": "09:00",
