@@ -1,9 +1,3 @@
-// TODO: Note whether a pool is outdoor or indoor.
-// TODO: See if there are possible duplicates between pool types (indoor, outdoor, wading, etc.) and handle them.
-// TODO: When new JSON files are created, move any old ones to a subfolder.
-// TODO: If a required output folder does not exist, create it.
-// TODO: Add the time it took to scrape to the "Scrape completed" message.
-
 var cheerio = require( 'cheerio' ),
     request = require( 'request' ),
     async = require( 'async' ),
