@@ -1,31 +1,36 @@
-// TODO: Note whether a pool is outdoor or indoor
-// TODO: See if there are possible duplicates between pool types (indoor, outdoor, wading, etc.) and handle them
-// TODO: When new JSON files are created, move any old ones to a subfolder of output/
+// TODO: Note whether a pool is outdoor or indoor.
+// TODO: See if there are possible duplicates between pool types (indoor, outdoor, wading, etc.) and handle them.
+// TODO: When new JSON files are created, move any old ones to a subfolder.
+// TODO: If a required output folder does not exist, create it.
+// TODO: Add the time it took to scrape to the "Scrape completed" message.
 
 var cheerio = require( 'cheerio' ),
     request = require( 'request' ),
     async = require( 'async' ),
     fs = require( 'fs' ),
     // longjohn = require( 'longjohn' ), // Increases length of the stack trace. Helpful for debugging memory leaks.
-    scrapeStartedDate = new Date(),
-    path = 'output/',
-    prefix = 'swimto_',
-    suffix = scrapeStartedDate.getFullYear() + '_'
-             + ( scrapeStartedDate.getMonth() + 1 ) + '_'
-             + scrapeStartedDate.getDate() + '_'
-             + ( scrapeStartedDate.getHours() > 10 ? scrapeStartedDate.getHours() : '0' + scrapeStartedDate.getHours() )
-             + ( scrapeStartedDate.getMinutes() > 10 ? scrapeStartedDate.getMinutes() : '0' + scrapeStartedDate.getMinutes() )
-             + ( scrapeStartedDate.getSeconds() > 10 ? scrapeStartedDate.getSeconds() : '0' + scrapeStartedDate.getSeconds() );
-    tempLinksFilePath = path + prefix + 'links_' + suffix + '_TEMP.json',
-    linksFilePath =  path + prefix + 'links_' + suffix + '.json',
-    tempDataFilePath = path + prefix + 'data_' + suffix + '_TEMP.json',
-    dataFilePath =  path + prefix + 'data_' + suffix + '.json',
     venueListURLs = [ 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm',
                       'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm',
                       'http://www.toronto.ca/parks/prd/facilities/indoor-pools/index.htm',
                       'http://www.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm' ];
 
 function swimTOUpdate( venueListURLs ) {
+  var scrapeStartedDate = new Date(),
+      rootPath = 'output/',
+      tempPath = rootPath + 'temp/',
+      linksPath = rootPath + 'links/',
+      dataPath = rootPath + 'data/',
+      prefix = 'swimto_',
+      suffix = scrapeStartedDate.getFullYear() + '_'
+               + ( scrapeStartedDate.getMonth() + 1 ) + '_'
+               + scrapeStartedDate.getDate() + '_'
+               + ( scrapeStartedDate.getHours() > 10 ? scrapeStartedDate.getHours() : '0' + scrapeStartedDate.getHours() )
+               + ( scrapeStartedDate.getMinutes() > 10 ? scrapeStartedDate.getMinutes() : '0' + scrapeStartedDate.getMinutes() )
+               + ( scrapeStartedDate.getSeconds() > 10 ? scrapeStartedDate.getSeconds() : '0' + scrapeStartedDate.getSeconds() );
+      tempLinksFile = tempPath + prefix + 'links_' + suffix + '_TEMP.json',
+      linksFile =  linksPath + prefix + 'links_' + suffix + '.json',
+      tempDataFile = tempPath + prefix + 'data_' + suffix + '_TEMP.json',
+      dataFile =  dataPath + prefix + 'data_' + suffix + '.json';
 
   function getVenueURLs( venueListURLs, callback ) {
 
@@ -33,6 +38,8 @@ function swimTOUpdate( venueListURLs ) {
         json = {},
         callbackCounter = 0,
         links;
+
+    console.log( '\n\nGetting URLs...\n' );
 
     for ( var i = 0; i < venueListURLs.length; i++ ) {
       request( venueListURLs[ i ], function( err, resp, body ) {
@@ -46,7 +53,7 @@ function swimTOUpdate( venueListURLs ) {
           links += '"http://toronto.ca' + $( this ).attr( 'href' ) + '"\n';
         } );
 
-        fs.appendFileSync( tempLinksFilePath, links );
+        fs.appendFileSync( tempLinksFile, links );
         requestCallback();
        } );
     }
@@ -61,15 +68,15 @@ function swimTOUpdate( venueListURLs ) {
     }
 
     function finish() {
-      linksScratch = fs.readFileSync( tempLinksFilePath ).toString().split( '\n' ).join( ',' );
+      linksScratch = fs.readFileSync( tempLinksFile ).toString().split( '\n' ).join( ',' );
 
-      fs.unlinkSync( tempLinksFilePath );
+      fs.unlinkSync( tempLinksFile );
 
       links = eval( '[' + linksScratch +  ']' );
 
       json.links = links;
 
-      var outputFile = fs.createWriteStream( linksFilePath ),
+      var outputFile = fs.createWriteStream( linksFile ),
           scrapeCompletedDate = new Date();
 
       outputFile.on( 'open', function( fd ) {
@@ -84,8 +91,7 @@ function swimTOUpdate( venueListURLs ) {
   }
 
   function writeJSON() {
-// console.log( fs.readFileSync( linksFilePath ).toString() );
-    var urls = JSON.parse( fs.readFileSync( linksFilePath ) ).links,
+    var urls = JSON.parse( fs.readFileSync( linksFile ) ).links,
         json = {
                 data : {}
               },
@@ -96,6 +102,8 @@ function swimTOUpdate( venueListURLs ) {
           requestURL( task.url );
           callback();
         }, 5 );
+
+    console.log( '\nScraping...\n' );
 
     function requestURL( url ) {
       request( url, function( err, resp, body ) {
@@ -114,7 +122,7 @@ function swimTOUpdate( venueListURLs ) {
           thisPool.description = $( '#pfrComplexDescr p' ).text().replace(/(\r\n|\n|\r|\t)/gm, '').trim().replace(/(\s\s)/gm, ' ');
           thisPool.address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim();
           thisPool.phone = $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().trim().replace(/[^0-9]/gm, '');
-          // thisPool.accessibility = $( '.pfrComplexLocation ul li:nth-child(3)' ).text().trim();
+          thisPool.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
           thisPool.ward = $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().trim().replace(/Ward: /gm, '');
           thisPool.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace(/District: /gm, '');
           thisPool.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace(/Near: /gm, '');
@@ -150,7 +158,7 @@ function swimTOUpdate( venueListURLs ) {
             thisPool.schedule = thisPool.schedule.concat( dates );
           } );
 
-          fs.appendFile( tempDataFilePath, JSON.stringify( thisPool ) + '\n', function( error ) {
+          fs.appendFile( tempDataFile, JSON.stringify( thisPool ) + '\n', function( error ) {
             if ( error ) throw error;
             requestCallback();
           } );
@@ -174,15 +182,17 @@ function swimTOUpdate( venueListURLs ) {
     }
 
     function finish() {
-      var poolsScratch = fs.readFileSync( tempDataFilePath ).toString().split( '\n' );
+      console.log( '\nCreating data file...\n' )
 
-      fs.unlinkSync( tempDataFilePath );
+      var poolsScratch = fs.readFileSync( tempDataFile ).toString().split( '\n' );
+
+      fs.unlinkSync( tempDataFile );
 
       pools = eval( '[' + poolsScratch +  ']' );
 
       data.pools = pools;
 
-      var outputFile = fs.createWriteStream( dataFilePath ),
+      var outputFile = fs.createWriteStream( dataFile ),
           scrapeCompletedDate = new Date();
 
       outputFile.on( 'open', function( fd ) {
@@ -190,9 +200,13 @@ function swimTOUpdate( venueListURLs ) {
         data[ 'scrapeCompleted' ] = scrapeCompletedDate.toISOString()
         outputFile.write( JSON.stringify( json ) );
       } );
+
+      console.log( '\n' +
+                   '------------------------------\n' +
+                   'Scrape completed.\n' );
     }
 
-    var urlsQueue = urls.slice( 0 );
+    var urlsQueue = urls.slice( 0 ); // Creates a shallow copy of the `urls` array
 
     for ( var i = 0; i < urls.length; i++ ) {
       // requestURL( urls[ i ] );
@@ -204,6 +218,5 @@ function swimTOUpdate( venueListURLs ) {
   getVenueURLs( venueListURLs, writeJSON );
 
 }
-
 
 swimTOUpdate( venueListURLs );
