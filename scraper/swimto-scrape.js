@@ -2,6 +2,8 @@ var cheerio = require( 'cheerio' ),
     request = require( 'request' ),
     async = require( 'async' ),
     fs = require( 'fs' ),
+    mongo = require( 'mongo' ),
+    mongoose = require( 'mongoose' ),
     // longjohn = require( 'longjohn' ), // Increases length of the stack trace. Helpful for debugging memory leaks.
     venueListURLs = [ 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm',
                       'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm',
@@ -91,6 +93,12 @@ function swimTOUpdate( venueListURLs ) {
               },
         data = json.data,
         pools,
+        // Toronto.ca posts days of the week as these abbreviations.
+        // We use these in requestURL() to determine if a particular date is this year, last year or next year.
+        daysOfTheWeek = [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ],
+        thisYear = scrapeStartedDate.getFullYear(),
+        lastYear = thisYear - 1,
+        nextYear = thisYear + 1,
         callbackCounter = 0; //,
         q = async.queue( function( task, callback ) {
           requestURL( task.url );
@@ -123,19 +131,54 @@ function swimTOUpdate( venueListURLs ) {
           thisPool.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace(/TTC Information: /gm, '').replace(/\s\s/gm, ' ');
           thisPool.schedule = [];
 
+          // A week's schedule is contained in a div with an ID beginning with `dropin_Swimming`
           $( '[id^="dropin_Swimming"]' ).each( function() {
             // The `thead` contains one blank `th` (above the column with the swim types)
             // and seven `th`s with the dates for that week.
             var dates = [],
                 activities = [],
+                $thisRow,
                 thisDate,
                 thisActivity,
-                thisAge;
+                thisAge,
+                thisSession,
+                sessionsSplit,
+                times,
+                am,
+                pm,
+                startTimeNum,
+                endTimeNum;
 
             $( this ).find( 'th' ).each( function() {
+
+              // Toronto.ca doesn't provide years in their schedule, so we have to figure out if a given date is this year,
+              // last year or next year. (Esp. when December and January are in the schedule.) We do this by seeing if the day of the week
+              // for the date matches the day of the week for that date this year. If not, we check next year, and if not that either, it's last year.
               if ( $( this ).text().length > 0 ) {
+                var dateString = $( this ).text(),
+                    dayOfTheWeekString = dateString.substr( 0, 3 ),
+                    dayOfTheWeekNum,
+                    dateThisYear = new Date( dateString.substr( 3 ) + ' ' + thisYear ),
+                    dateLastYear = new Date( dateString.substr( 3 ) + ' ' + lastYear ),
+                    dateNextYear = new Date( dateString.substr( 3 ) + ' ' + nextYear ),
+                    date;
+
+                for ( var i = 0; i < daysOfTheWeek.length; i++ ) {
+                  if ( dayOfTheWeekString === daysOfTheWeek[ i ] ) {
+                    dayOfTheWeekNum = i;
+                  }
+                }
+
+                if ( dayOfTheWeekNum === dateThisYear.getDay() ) {
+                  date = dateThisYear;
+                } else if ( dayOfTheWeekNum === dateNextYear.getDay() ) {
+                  date = dateNextYear;
+                } else if ( dayOfTheWeekNum === dateNextYear.getDay() ) {
+                  date = dateLastYear;
+                }
+
                 thisDate = {
-                  date: $( this ).text(),
+                  date: date,
                   activities: []
                 }
                 dates.push( thisDate );
@@ -144,9 +187,44 @@ function swimTOUpdate( venueListURLs ) {
 
             // Each `tr` contains the week's schedule for a given activity
             $( this ).find( 'tbody' ).find( 'tr' ).each( function() {
-              thisActivity = $( this ).find( '.coursetitlecol' ).text();
+              $thisRow = $( this );
+              thisActivity = {};
+              thisActivity.activity = $( this ).find( '.coursetitlecol' ).text();
               // Regexes to format age restrictions
-              thisAge = $( this ).find( '.courseagecol' ).length > 0 ? $( this ).find( '.courseagecol' ).text().replace(/(\(|\))/gm, '').replace(/([0-9])(yrs)/gm, '$1 years') : undefined;
+              thisActivity.age = $( this ).find( '.courseagecol' ).length > 0 ? $( this ).find( '.courseagecol' ).text().replace(/(\(|\))/gm, '').replace(/([0-9])(yrs)/gm, '$1 years') : '';
+              thisActivity.sessions = [];
+              
+              $( this ).find( 'td' ).each( function() {
+
+                if ( $( this ).find( '.coursetitlecol' ).length > 0 ) {
+                  return true; // Skips to next object in .each() loop
+                // Next we check for a <br> tag, which can signify that there are 
+                // multiple sessions for the activity that day.
+                } else if ( $( this ).find( 'br' ) ) {
+                  // If the result of splitting on <br>s is more than one array item, 
+                  // each array item is a session.
+                  sessionsSplit = $( this ).html().trim().split( /<br>|<br \/>/ );
+                  if ( sessionsSplit.length > 1 ) {
+                    for ( var i = 0; i < sessionsSplit.length; i++ ) {
+                      thisSession = {};
+                      am = ( sessionsSplit[ i ].indexOf( 'am' ) !== -1 ) ? true : false;
+                      pm = ( sessionsSplit[ i ].indexOf( 'pm' ) !== -1 ) ? true : false;
+                      times = sessionsSplit[ i ].trim().split( ' - ' );
+                      startTimeNum = parseInt( times[ 0 ].replace( /[a-zA-Z]/, '' ), 10 );
+                      endTimeNum = parseInt( times[ 1 ].replace( /[a-zA-Z]/, '' ), 10 );
+                      thisSession.startTime = am ?  : ;
+                      thisSession.endTime = times[ 1 ];
+                      thisActivity.sessions.push( thisSession );
+                    }
+                  }                
+                } else {
+                  thisSession = {};
+                  times = $( this ).text().trim().split( ' - ' );
+                  thisSession.startTime = times[ 0 ];
+                  thisSession.endTime = times[ 1 ];
+                  thisActivity.sessions.push( thisSession );
+                }
+              } );
             } );
 
             thisPool.schedule = thisPool.schedule.concat( dates );

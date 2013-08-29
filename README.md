@@ -10,9 +10,12 @@ The front-end will start as a web app for finding swimming pools in Toronto. Aft
 To do
 ======
 
+- [ ] Populate database.
+- [ ] 
 - [ ] Note whether a pool is outdoor or indoor.
 - [ ] See if there are possible duplicates between pool types (indoor, outdoor, wading, etc.) and handle them.
 - [ ] When new JSON files are created, move any old ones to a subfolder.
 - [ ] If a required output folder does not exist, create it.
 - [ ] Add the time it took to scrape to the "Scrape completed" message.
 - [ ] Format toronto.ca's dates and times into ISO.
+- [ ] Write tests.
