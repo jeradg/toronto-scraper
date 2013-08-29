@@ -5,10 +5,10 @@ var cheerio = require( 'cheerio' ),
     mongo = require( 'mongo' ),
     mongoose = require( 'mongoose' ),
     // longjohn = require( 'longjohn' ), // Increases length of the stack trace. Helpful for debugging memory leaks.
-    venueListURLs = [ 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm',
-                      'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm',
-                      'http://www.toronto.ca/parks/prd/facilities/indoor-pools/index.htm',
-                      'http://www.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm' ];
+    venueListURLs = [ 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm' ]; // ,
+                      // 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm',
+                      // 'http://www.toronto.ca/parks/prd/facilities/indoor-pools/index.htm',
+                      // 'http://www.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm' ];
 
 function swimTOUpdate( venueListURLs ) {
   var scrapeStartedDate = new Date(),
@@ -147,7 +147,8 @@ function swimTOUpdate( venueListURLs ) {
                 am,
                 pm,
                 startTimeNum,
-                endTimeNum;
+                endTimeNum,
+                timesText;
 
             $( this ).find( 'th' ).each( function() {
 
@@ -181,12 +182,15 @@ function swimTOUpdate( venueListURLs ) {
                   date: date,
                   activities: []
                 }
+
                 dates.push( thisDate );
               }
             } );
 
+
             // Each `tr` contains the week's schedule for a given activity
             $( this ).find( 'tbody' ).find( 'tr' ).each( function() {
+              var activityDayOfTheWeek = 0; // Keeps track of which day of the week is being processed. 0 is Sunday.
               $thisRow = $( this );
               thisActivity = {};
               thisActivity.activity = $( this ).find( '.coursetitlecol' ).text();
@@ -200,33 +204,128 @@ function swimTOUpdate( venueListURLs ) {
                   return true; // Skips to next object in .each() loop
                 // Next we check for a <br> tag, which can signify that there are 
                 // multiple sessions for the activity that day.
-                } else if ( $( this ).find( 'br' ) ) {
-                  // If the result of splitting on <br>s is more than one array item, 
-                  // each array item is a session.
-                  sessionsSplit = $( this ).html().trim().split( /<br>|<br \/>/ );
-                  if ( sessionsSplit.length > 1 ) {
+                } else {
+                  if ( ( $( this ).find( 'br' ) ) && ( $( this ).html().trim().split( /<br>|<br \/>/ ).length > 1 ) ) {
+                    // If the result of splitting on <br>s is more than one array item, 
+                    // each array item is a session.
+                    sessionsSplit = $( this ).html().trim().split( /<br>|<br \/>/ );
                     for ( var i = 0; i < sessionsSplit.length; i++ ) {
                       thisSession = {};
                       am = ( sessionsSplit[ i ].indexOf( 'am' ) !== -1 ) ? true : false;
                       pm = ( sessionsSplit[ i ].indexOf( 'pm' ) !== -1 ) ? true : false;
                       times = sessionsSplit[ i ].trim().split( ' - ' );
-                      startTimeNum = parseInt( times[ 0 ].replace( /[a-zA-Z]/, '' ), 10 );
-                      endTimeNum = parseInt( times[ 1 ].replace( /[a-zA-Z]/, '' ), 10 );
-                      thisSession.startTime = am ?  : ;
-                      thisSession.endTime = times[ 1 ];
+                      times[ 0 ] = times[ 0 ].replace( /[a-zA-Z]*/gm, '' );
+                      times[ 1 ] = times[ 1 ].replace( /[a-zA-Z]*/gm, '' );
+
+                      for ( var j = 0; j < times.length; j++ ) {
+                        if ( times[ j ].indexOf( ':' ) !== -1 ) {
+                          times[ j ] = times[ j ].split( ':' );
+                          times[ j ][ 0 ] = parseInt( times[ j ][ 0 ], 10 );
+                          times[ j ][ 1 ] = parseInt( times[ j ][ 1 ], 10 );
+                        } else {
+                          times[ j ] = [ parseInt( times[ j ], 10 ), '00' ];
+                        }
+
+                      if ( am && pm ) {
+                        times[ 0 ][ 0 ] += 12;
+                      } else if ( pm ) { // i.e., else if ( pm && !m )
+                        times[ 0 ][ 0 ] += 12;
+                        times[ 1 ][ 0 ] += 12;
+                      } // If only am, don't add 12 because both hours are in the AM
+if ( times[ j ][ 0 ] >= 24 ) {
+  console.log( $( this ).html() );
+}
+                      }
+
+
+                      // for ( var j = 0; j < times.length; j++ ) {
+                      //   if ( times[ j ].indexOf( ':' ) !== -1 ) {
+                      //     var hours = parseInt( times[ j ].split( ':' )[ 0 ], 10 ),
+                      //         minutes = parseInt( times[ j ].split( ':' )[ 1 ], 10 );
+
+
+                        //   if ( ( hours === 12 ) && ( pm === true ) ) {
+                        //     times[ j ] = hours + ':' + minutes;
+                        //   } else if ( ( j === 0 ) && ( am !== true ) ) {
+                        //   // If the time we're processing is the start time and it's not in the AM or 12 PM,
+                        //   // add 12 to the time (to put it on the 24-hour clock)
+                        //     hours += 12;
+                        //     times[ j ] = hours + ':' + minutes;
+                        //   } else if ( ( j === 1 ) && ( pm === true ) ) {
+                        //   // If the time we're processing is the end time and it's in the PM,
+                        //   // add 12 to the time (to put it on the 24-hour clock)
+                        //     hours += 12;
+                        //     times[ j ] = hours + ':' + minutes;
+                        //   }
+                        // } else {
+                        //   var hours = times[ j ];
+                        //   if ( ( hours === 12 ) && ( pm === true ) ) {
+                        //     times[ j ] = hours + ':00';
+                        //   } else if ( ( j === 0 ) && ( am !== true ) ) {
+                        //   // Same as above, but for times that don't contain ':' (i.e., that don't specify minutes)
+                        //     hours = parseInt( hours, 10 ) + 12;
+                        //     times[ j ] = hours + ':00';
+                        //   } else if ( ( j === 1 ) && ( pm === true ) ) {
+                        //     hours = parseInt( hours, 10 ) + 12;
+                        //     times[ j ] = hours + ':00';
+                        //   }
+                        // }
+
+                      thisSession.startTime = times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ];
+                      thisSession.endTime = times[ 1 ][ 0 ] + ':' + times[ 1 ][ 1 ];
                       thisActivity.sessions.push( thisSession );
                     }
-                  }                
-                } else {
-                  thisSession = {};
-                  times = $( this ).text().trim().split( ' - ' );
-                  thisSession.startTime = times[ 0 ];
-                  thisSession.endTime = times[ 1 ];
-                  thisActivity.sessions.push( thisSession );
+                  }else if ( ( $( this ).html().replace( /&nbsp;*/gm, '' ).trim().length > 0 ) && ( $( this ).text().trim().length > 0 ) ) {
+                    thisSession = {};
+                    timesText = $( this ).text().trim();
+                    am = ( timesText.indexOf( 'am' ) !== -1 ) ? true : false;
+                    pm = ( timesText.indexOf( 'pm' ) !== -1 ) ? true : false;
+                    times = $( this ).text().trim().split( ' - ' );
+                    times[ 0 ] = times[ 0 ].replace( /[a-zA-Z]*/gm, '' );
+                    times[ 1 ] = times[ 1 ].replace( /[a-zA-Z]*/gm, '' );
+
+                    for ( var j = 0; j < times.length; j++ ) {
+                      if ( times[ j ].indexOf( ':' ) !== -1 ) {
+                        var hours = parseInt( times[ j ].split( ':' )[ 0 ], 10 ),
+                            minutes = parseInt( times[ j ].split( ':' )[ 1 ], 10 );
+
+                        if ( ( hours === 12 ) && ( pm === true ) ) {
+                          times[ j ] = hours + ':' + minutes;
+                        } else if ( ( j === 0 ) && ( am !== true ) ) {
+                        // If the time we're processing is the start time and it's not in the AM or 12 PM,
+                        // add 12 to the time (to put it on the 24-hour clock)
+                          hours += 12;
+                          times[ j ] = hours + ':' + minutes;
+                        } else if ( ( j === 1 ) && ( pm === true ) ) {
+                        // If the time we're processing is the end time and it's in the PM,
+                        // add 12 to the time (to put it on the 24-hour clock)
+                          hours += 12;
+                          times[ j ] = hours + ':' + minutes;
+                        }
+                      } else {
+                        var hours = parseInt( times[ j ], 10 );
+                        if ( ( hours === 12 ) && ( pm === true ) ) {
+                          times[ j ] = hours + ':00';
+                        } else if ( ( j === 0 ) && ( am !== true ) ) {
+                        // Same as above, but for times that don't contain ':' (i.e., that don't specify minutes)
+                          hours = parseInt( hours, 10 ) + 12;
+                          times[ j ] = hours + ':00';
+                        } else if ( ( j === 1 ) && ( pm === true ) ) {
+                          hours = parseInt( hours, 10 ) + 12;
+                          times[ j ] = hours + ':00';
+                        }
+                      }
+                    }
+
+                    thisSession.startTime = times[ 0 ];
+                    thisSession.endTime = times[ 1 ];
+                    thisActivity.sessions.push( thisSession );
+                  }
+                  dates[ activityDayOfTheWeek ].activities.push( thisActivity );
+                  activityDayOfTheWeek++; // See you tomorrow!
                 }
               } );
             } );
-
             thisPool.schedule = thisPool.schedule.concat( dates );
           } );
 
