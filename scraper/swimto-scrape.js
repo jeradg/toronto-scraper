@@ -5,10 +5,10 @@ var cheerio = require( 'cheerio' ),
     mongo = require( 'mongo' ),
     mongoose = require( 'mongoose' ),
     // longjohn = require( 'longjohn' ), // Increases length of the stack trace. Helpful for debugging memory leaks.
-    venueListURLs = [ 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm' ]; // ,
-                      // 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm',
-                      // 'http://www.toronto.ca/parks/prd/facilities/indoor-pools/index.htm',
-                      // 'http://www.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm' ];
+    venueListURLs = [ 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm',
+                      'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm',
+                      'http://www.toronto.ca/parks/prd/facilities/indoor-pools/index.htm',
+                      'http://www.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm' ];
 
 function swimTOUpdate( venueListURLs ) {
   var scrapeStartedDate = new Date(),
@@ -107,6 +107,36 @@ function swimTOUpdate( venueListURLs ) {
 
     console.log( '\nScraping...\n' );
 
+    function processTimes( rawTimeRange, activity ) {
+      thisSession = {};
+      am = ( rawTimeRange.indexOf( 'am' ) !== -1 ) ? true : false;
+      pm = ( rawTimeRange.indexOf( 'pm' ) !== -1 ) ? true : false;
+      times = rawTimeRange.trim().split( ' - ' );
+      times[ 0 ] = times[ 0 ].replace( /[a-zA-Z]*/gm, '' );
+      times[ 1 ] = times[ 1 ].replace( /[a-zA-Z]*/gm, '' );
+
+      for ( var j = 0; j < times.length; j++ ) {
+        if ( times[ j ].indexOf( ':' ) !== -1 ) {
+          times[ j ] = times[ j ].split( ':' );
+          times[ j ][ 0 ] = parseInt( times[ j ][ 0 ], 10 );
+          times[ j ][ 1 ] = parseInt( times[ j ][ 1 ], 10 );
+        } else {
+          times[ j ] = [ parseInt( times[ j ], 10 ), '00' ];
+        }
+      }
+
+      if ( am && pm ) { // If one of the times is in the AM and the other is PM, add
+        times[ 1 ][ 0 ] = times[ 1 ][ 0 ] === 12 ? times[ 1 ][ 0 ] : times[ 1 ][ 0 ] + 12;
+      } else if ( pm ) { // i.e., else if ( pm && !am )
+        times[ 0 ][ 0 ] = times[ 0 ][ 0 ] === 12 ? times[ 0 ][ 0 ] : times[ 0 ][ 0 ] + 12;
+        times[ 1 ][ 0 ] = times[ 1 ][ 0 ] === 12 ? times[ 1 ][ 0 ] : times[ 1 ][ 0 ] + 12;
+      } // If only am, don't add 12 because both hours are in the AM
+
+      thisSession.startTime = times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ];
+      thisSession.endTime = times[ 1 ][ 0 ] + ':' + times[ 1 ][ 1 ];
+      activity.sessions.push( thisSession );
+    }
+
     function requestURL( url ) {
       request( url, function( err, resp, body ) {
         if ( err ) return console.log( 'ERROR: While trying to request the URL ' + url + ', there was the following error: \n' + err );
@@ -117,18 +147,19 @@ function swimTOUpdate( venueListURLs ) {
         // Only gather information about pools with drop-in swimming (as opposed to registration-only programmes)
         if ( $( '[id^="dropin_Swimming"]' ).length > 0 ) {
           
-          // The regex removes newlines and tabs from the pool name
-          thisPool.pool = $( '.wrapper h1' ).text().replace(/(\r\n|\n|\r|\t)/gm, '');
+          // The regex removes newlines and tabs from the pool name.
+          thisPool.pool = $( '.wrapper h1' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' );
           thisPool.url = resp.request.href;
-          // The second regex replaces double spaces in the description with single spaces
-          thisPool.description = $( '#pfrComplexDescr p' ).text().replace(/(\r\n|\n|\r|\t)/gm, '').trim().replace(/(\s\s)/gm, ' ');
+          // The second regex replaces double spaces in the description with single spaces.
+          thisPool.description = $( '#pfrComplexDescr p' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).trim().replace( /(\s\s)/gm, ' ' );
           thisPool.address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim();
-          thisPool.phone = $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().trim().replace(/[^0-9]/gm, '');
+          // The regex adds hyphens to phone numbers.
+          thisPool.phone = $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().trim().replace( /[^0-9]/gm, '' ).replace( /(\d{3})(\d{3})(\d{4})/g, '$1-$2-$3' );
           thisPool.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
-          thisPool.ward = $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().trim().replace(/Ward: /gm, '');
-          thisPool.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace(/District: /gm, '');
-          thisPool.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace(/Near: /gm, '');
-          thisPool.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace(/TTC Information: /gm, '').replace(/\s\s/gm, ' ');
+          thisPool.ward = $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().trim().replace( /Ward: /gm, '' );
+          thisPool.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace( /District: /gm, '' );
+          thisPool.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace( /Near: /gm, '' );
+          thisPool.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace( /TTC Information: /gm, '' ).replace( /\s\s/gm, ' ' );
           thisPool.schedule = [];
 
           // A week's schedule is contained in a div with an ID beginning with `dropin_Swimming`
@@ -187,145 +218,43 @@ function swimTOUpdate( venueListURLs ) {
               }
             } );
 
-
             // Each `tr` contains the week's schedule for a given activity
             $( this ).find( 'tbody' ).find( 'tr' ).each( function() {
-              var activityDayOfTheWeek = 0; // Keeps track of which day of the week is being processed. 0 is Sunday.
               $thisRow = $( this );
-              thisActivity = {};
-              thisActivity.activity = $( this ).find( '.coursetitlecol' ).text();
-              // Regexes to format age restrictions
-              thisActivity.age = $( this ).find( '.courseagecol' ).length > 0 ? $( this ).find( '.courseagecol' ).text().replace(/(\(|\))/gm, '').replace(/([0-9])(yrs)/gm, '$1 years') : '';
-              thisActivity.sessions = [];
               
-              $( this ).find( 'td' ).each( function() {
+              $( this ).find( 'td' ).each( function( column ) {
+                thisActivity = {};
+                thisActivity.activity = $thisRow.find( '.coursetitlecol' ).text();
+                // Regexes to format age restrictions
+                thisActivity.age = $thisRow.find( '.courseagecol' ).length > 0 ? $( this ).find( '.courseagecol' ).text().replace( /(\(|\))/gm, '' ).replace( /([0-9])(yrs)/gm, '$1 years' ) : '';
+                thisActivity.sessions = [];
 
                 if ( $( this ).find( '.coursetitlecol' ).length > 0 ) {
                   return true; // Skips to next object in .each() loop
                 // Next we check for a <br> tag, which can signify that there are 
                 // multiple sessions for the activity that day.
                 } else {
+
                   if ( ( $( this ).find( 'br' ) ) && ( $( this ).html().trim().split( /<br>|<br \/>/ ).length > 1 ) ) {
                     // If the result of splitting on <br>s is more than one array item, 
                     // each array item is a session.
                     sessionsSplit = $( this ).html().trim().split( /<br>|<br \/>/ );
+
                     for ( var i = 0; i < sessionsSplit.length; i++ ) {
-                      thisSession = {};
-                      am = ( sessionsSplit[ i ].indexOf( 'am' ) !== -1 ) ? true : false;
-                      pm = ( sessionsSplit[ i ].indexOf( 'pm' ) !== -1 ) ? true : false;
-                      times = sessionsSplit[ i ].trim().split( ' - ' );
-                      times[ 0 ] = times[ 0 ].replace( /[a-zA-Z]*/gm, '' );
-                      times[ 1 ] = times[ 1 ].replace( /[a-zA-Z]*/gm, '' );
-
-                      for ( var j = 0; j < times.length; j++ ) {
-                        if ( times[ j ].indexOf( ':' ) !== -1 ) {
-                          times[ j ] = times[ j ].split( ':' );
-                          times[ j ][ 0 ] = parseInt( times[ j ][ 0 ], 10 );
-                          times[ j ][ 1 ] = parseInt( times[ j ][ 1 ], 10 );
-                        } else {
-                          times[ j ] = [ parseInt( times[ j ], 10 ), '00' ];
-                        }
-
-                      if ( am && pm ) {
-                        times[ 0 ][ 0 ] += 12;
-                      } else if ( pm ) { // i.e., else if ( pm && !m )
-                        times[ 0 ][ 0 ] += 12;
-                        times[ 1 ][ 0 ] += 12;
-                      } // If only am, don't add 12 because both hours are in the AM
-if ( times[ j ][ 0 ] >= 24 ) {
-  console.log( $( this ).html() );
-}
-                      }
-
-
-                      // for ( var j = 0; j < times.length; j++ ) {
-                      //   if ( times[ j ].indexOf( ':' ) !== -1 ) {
-                      //     var hours = parseInt( times[ j ].split( ':' )[ 0 ], 10 ),
-                      //         minutes = parseInt( times[ j ].split( ':' )[ 1 ], 10 );
-
-
-                        //   if ( ( hours === 12 ) && ( pm === true ) ) {
-                        //     times[ j ] = hours + ':' + minutes;
-                        //   } else if ( ( j === 0 ) && ( am !== true ) ) {
-                        //   // If the time we're processing is the start time and it's not in the AM or 12 PM,
-                        //   // add 12 to the time (to put it on the 24-hour clock)
-                        //     hours += 12;
-                        //     times[ j ] = hours + ':' + minutes;
-                        //   } else if ( ( j === 1 ) && ( pm === true ) ) {
-                        //   // If the time we're processing is the end time and it's in the PM,
-                        //   // add 12 to the time (to put it on the 24-hour clock)
-                        //     hours += 12;
-                        //     times[ j ] = hours + ':' + minutes;
-                        //   }
-                        // } else {
-                        //   var hours = times[ j ];
-                        //   if ( ( hours === 12 ) && ( pm === true ) ) {
-                        //     times[ j ] = hours + ':00';
-                        //   } else if ( ( j === 0 ) && ( am !== true ) ) {
-                        //   // Same as above, but for times that don't contain ':' (i.e., that don't specify minutes)
-                        //     hours = parseInt( hours, 10 ) + 12;
-                        //     times[ j ] = hours + ':00';
-                        //   } else if ( ( j === 1 ) && ( pm === true ) ) {
-                        //     hours = parseInt( hours, 10 ) + 12;
-                        //     times[ j ] = hours + ':00';
-                        //   }
-                        // }
-
-                      thisSession.startTime = times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ];
-                      thisSession.endTime = times[ 1 ][ 0 ] + ':' + times[ 1 ][ 1 ];
-                      thisActivity.sessions.push( thisSession );
+                      processTimes( sessionsSplit[ i ], thisActivity );
                     }
-                  }else if ( ( $( this ).html().replace( /&nbsp;*/gm, '' ).trim().length > 0 ) && ( $( this ).text().trim().length > 0 ) ) {
-                    thisSession = {};
-                    timesText = $( this ).text().trim();
-                    am = ( timesText.indexOf( 'am' ) !== -1 ) ? true : false;
-                    pm = ( timesText.indexOf( 'pm' ) !== -1 ) ? true : false;
-                    times = $( this ).text().trim().split( ' - ' );
-                    times[ 0 ] = times[ 0 ].replace( /[a-zA-Z]*/gm, '' );
-                    times[ 1 ] = times[ 1 ].replace( /[a-zA-Z]*/gm, '' );
-
-                    for ( var j = 0; j < times.length; j++ ) {
-                      if ( times[ j ].indexOf( ':' ) !== -1 ) {
-                        var hours = parseInt( times[ j ].split( ':' )[ 0 ], 10 ),
-                            minutes = parseInt( times[ j ].split( ':' )[ 1 ], 10 );
-
-                        if ( ( hours === 12 ) && ( pm === true ) ) {
-                          times[ j ] = hours + ':' + minutes;
-                        } else if ( ( j === 0 ) && ( am !== true ) ) {
-                        // If the time we're processing is the start time and it's not in the AM or 12 PM,
-                        // add 12 to the time (to put it on the 24-hour clock)
-                          hours += 12;
-                          times[ j ] = hours + ':' + minutes;
-                        } else if ( ( j === 1 ) && ( pm === true ) ) {
-                        // If the time we're processing is the end time and it's in the PM,
-                        // add 12 to the time (to put it on the 24-hour clock)
-                          hours += 12;
-                          times[ j ] = hours + ':' + minutes;
-                        }
-                      } else {
-                        var hours = parseInt( times[ j ], 10 );
-                        if ( ( hours === 12 ) && ( pm === true ) ) {
-                          times[ j ] = hours + ':00';
-                        } else if ( ( j === 0 ) && ( am !== true ) ) {
-                        // Same as above, but for times that don't contain ':' (i.e., that don't specify minutes)
-                          hours = parseInt( hours, 10 ) + 12;
-                          times[ j ] = hours + ':00';
-                        } else if ( ( j === 1 ) && ( pm === true ) ) {
-                          hours = parseInt( hours, 10 ) + 12;
-                          times[ j ] = hours + ':00';
-                        }
-                      }
-                    }
-
-                    thisSession.startTime = times[ 0 ];
-                    thisSession.endTime = times[ 1 ];
-                    thisActivity.sessions.push( thisSession );
+                  } else if ( ( $( this ).html().replace( /&nbsp;*/gm, '' ).trim().length > 0 ) && ( $( this ).text().trim().length > 0 ) ) {
+                    processTimes( $( this ).text().trim(), thisActivity );
                   }
-                  dates[ activityDayOfTheWeek ].activities.push( thisActivity );
-                  activityDayOfTheWeek++; // See you tomorrow!
+
+                }
+
+                if ( thisActivity.sessions.length > 0 ) {
+                  dates[ column - 1 ].activities.push( thisActivity );
                 }
               } );
             } );
+            
             thisPool.schedule = thisPool.schedule.concat( dates );
           } );
 
@@ -335,10 +264,8 @@ if ( times[ j ][ 0 ] >= 24 ) {
           } );
 
         } else {
-
           // If there are no drop-in swimming programmes, fire the request callback
           requestCallback();
-
         }
       } );
     }
@@ -380,7 +307,6 @@ if ( times[ j ][ 0 ] >= 24 ) {
     var urlsQueue = urls.slice( 0 ); // Creates a shallow copy of the `urls` array
 
     for ( var i = 0; i < urls.length; i++ ) {
-      // requestURL( urls[ i ] );
       q.push( { url: urls[ i ] } );
     }
 

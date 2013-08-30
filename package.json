@@ -1,7 +1,13 @@
 {
   "name": "swimto",
   "version": "0.0.0",
-  "dependencies": {},
+  "dependencies": {
+    "async": "~0.2.9",
+    "cheerio": "~0.12.1",
+    "mongoose": "~3.6.18",
+    "mongo": "~0.1.0",
+    "request": "~2.27.0"
+  },
   "devDependencies": {
     "grunt": "~0.4.1",
     "grunt-contrib-copy": "~0.4.0",
