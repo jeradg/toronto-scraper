@@ -6,7 +6,8 @@
     "cheerio": "~0.12.1",
     "mongoose": "~3.6.18",
     "mongo": "~0.1.0",
-    "request": "~2.27.0"
+    "request": "~2.27.0",
+    "express": "~3.3.7"
   },
   "devDependencies": {
     "grunt": "~0.4.1",

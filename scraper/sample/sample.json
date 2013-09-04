@@ -2,9 +2,9 @@
   "data": {
     "scrapeStarted": "2013-08-26T07:12:26-04:00",
     "scrapeCompleted": "2013-08-26T07:15:36-04:00",
-    "pools": [
+    "venues": [
       {
-        "pool": "Agincourt Recreation Centre",
+        "name": "Agincourt Recreation Centre",
         "url": "http://www.toronto.ca/parks/prd/facilities/complex/523/index.htm",
         "description": "Agincourt CRC & Leisure Pool is one of only two leisure pools in the Scarborough District providing lessons, recreation swims and birthday parties for all ages. We are home to Agincourt Lions Club, Agincourt Lawnbowling Club, Scarborough Horseshoe Club and Agincourt Tennis Club. Our programmes accomodate participants from Preschoolers to the Older Adult. Two indoor rinks provide ice for hockey and leisure skates. The centre also offers a Snoezelen Room. Please contact the centre for details.",
         "address": "31 Glen Watford Dr M1S 2B7",
