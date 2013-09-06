@@ -30,7 +30,7 @@
                 "endTime": ISODate('2013-08-27T09:00:00-04:00')
               }
             ]
-          },
+          },  
           {
             "activity": "Leisure Swim",
             "sessions": [

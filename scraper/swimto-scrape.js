@@ -52,7 +52,7 @@ function swimTOUpdate( venueListURLs ) {
             return console.log( 'Error: Could not find any venue links at ' + urls[ i ] );
           }
         } else {
-          return console.log( 'ERROR: While trying to request the URL ' + url + ', there was the following error: \n' + err );
+          return console.log( 'ERROR: While trying to request the URL ' + url + ', there was the following error: \n' + error );
         }
       } );
     }
@@ -141,7 +141,7 @@ function swimTOUpdate( venueListURLs ) {
           thisFullDate = dateObject.getFullYear() + '-' + thisMonth + '-' + thisDate,
           offset = new Date().getTimezoneOffset(),
           times = rawTimeRange.trim().split( ' - ' );
-console.log( offset / 60 );
+// console.log( offset / 60 );
       times[ 0 ] = times[ 0 ].replace( /[a-zA-Z]*/gm, '' );
       times[ 1 ] = times[ 1 ].replace( /[a-zA-Z]*/gm, '' );
 
@@ -180,6 +180,39 @@ console.log( offset / 60 );
       }
     }
 
+    function getLatLong( address ) {
+      // To deal with error on http://www.toronto.ca/parks/prd/facilities/complex/1317/
+      // Toronto Parks was emailed about the error on 6 Sept 2013
+      if ( address === '145 Guildwood Pky MIE 1P5' ) {
+        address = '145 Guildwood Pky M1E 1P5';
+      }
+      var latLong = {},
+          addressRegex = /([0-9]*\s*?[0-9\/]*?)(?:\s*)([A-Za-z.\s]*(?=[A-Za-z][0-9][A-Za-z](?:\s)?[0-9][A-Za-z][0-9]))([A-Za-z][0-9][A-Za-z])(?:\s)?([0-9][A-Za-z][0-9])/,
+          addressArray = address.match( addressRegex );
+
+      if ( addressArray ) {
+        var streetNumber = addressArray[ 1 ].trim().replace(/\s{2,}/g, ' '),
+            streetName = addressArray[ 2 ].trim().replace(/\s{2,}/g, ' '),
+            postalCode = addressArray[ 3 ] + addressArray[ 4 ],
+            geocodeURL = 'http://geocoder.ca/?' + 'stno=' + streetNumber.replace( /\//g, '%2F' ) + '&addresst=' + streetName + '&city=Toronto&province=ON&postal=' + postalCode,
+            geocodeURLEscaped = geocodeURL.replace( /\s/g, '%20' );
+      } else {
+        if( !addressArray ) {
+          console.log( 'getLatLong failed for the following address:\n' + address );
+        }
+      }
+
+      // request( geocodeURLEscaped, function( error, response, body ) {
+
+      // } );
+
+// var latLong = {};
+      // latLong.latitude = 0;
+      latLong.longitude = 0;
+
+      return latLong;
+    }
+
     function requestURL( url ) {
       request( url, function( error, resp, body ) {
         if ( !error ) {
@@ -194,16 +227,6 @@ console.log( offset / 60 );
             // The regex removes newlines and tabs from the venue name.
             thisVenue.name = $( '.wrapper h1' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).replace( /([ \t\r\n][ \t\r\n]*)/, ' ' ).trim();
             thisVenue.url = resp.request.href;
-            // The second regex replaces double spaces in the description with single spaces.
-            thisVenue.description = $( '#pfrComplexDescr p' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).trim().replace( /(\s\s)/gm, ' ' );
-            thisVenue.address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim();
-            // The regex adds hyphens to phone numbers.
-            thisVenue.phone = parseInt( $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().replace( /[^0-9]/gm, '' ), 10 );
-            thisVenue.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
-            thisVenue.ward = parseInt( $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().replace( /Ward: /gm, '' ), 10 );
-            thisVenue.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace( /District: /gm, '' );
-            thisVenue.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace( /Near: /gm, '' );
-            thisVenue.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace( /TTC Information: /gm, '' ).replace( /\s\s/gm, ' ' );
             thisVenue.schedule = [];
 
             // A week's schedule is contained in a div with an ID beginning with `dropin_Swimming`
@@ -283,7 +306,6 @@ console.log( offset / 60 );
                   // Next we check for a <br> tag, which can signify that there are 
                   // multiple sessions for the activity that day.
                   } else {
-
                     if ( ( $( this ).find( 'br' ) ) && ( $( this ).html().trim().split( /<br>|<br \/>/ ).length > 1 ) ) {
                       // If the result of splitting on <br>s is more than one array item, 
                       // each array item is a session.
@@ -312,6 +334,23 @@ console.log( offset / 60 );
             }
 
             function createVenue() {
+              var latLong;
+
+              // The second regex replaces double spaces in the description with single spaces.
+              thisVenue.description = $( '#pfrComplexDescr p' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).trim().replace( /(\s\s)/gm, ' ' );
+              thisVenue.address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim();
+              latLong = getLatLong( thisVenue.address );
+              thisVenue.latitude = latLong.latitude;
+              thisVenue.longitude = latLong.longitude;
+// console.log ( thisVenue.latitude + ', ' + thisVenue.longitude );
+              // The regex adds hyphens to phone numbers.
+              thisVenue.phone = parseInt( $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().replace( /[^0-9]/gm, '' ), 10 );
+              thisVenue.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
+              thisVenue.ward = parseInt( $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().replace( /Ward: /gm, '' ), 10 );
+              thisVenue.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace( /District: /gm, '' );
+              thisVenue.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace( /Near: /gm, '' );
+              thisVenue.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace( /TTC Information: /gm, '' ).replace( /\s\s/gm, ' ' );
+// console.log( thisVenue.address );
               VenueModel.create(
                 {
                   name: thisVenue.name,
@@ -355,8 +394,8 @@ console.log( offset / 60 );
           }
         
         } else {
-          console.log( 'ERROR: While trying to request the URL ' + url + ', there was the following error: \n' + err );
-          return requestCallback();
+          console.log( 'ERROR: While trying to request the URL ' + url + ', there was the following error: \n' + error );
+          requestCallback();
         }
       } );
     }
@@ -374,6 +413,10 @@ console.log( offset / 60 );
       console.log( '\n' +
                    '------------------------------\n' +
                    'Scrape completed.\n' );
+
+// FOR TESTING: Drop the collection after adding it
+mongoose.connection.db.dropCollection( 'venues' );
+      
       mongoose.connection.close();
     }
 
