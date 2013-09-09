@@ -180,39 +180,6 @@ function swimTOUpdate( venueListURLs ) {
       }
     }
 
-    function getLatLong( address ) {
-      // To deal with error on http://www.toronto.ca/parks/prd/facilities/complex/1317/
-      // Toronto Parks was emailed about the error on 6 Sept 2013
-      if ( address === '145 Guildwood Pky MIE 1P5' ) {
-        address = '145 Guildwood Pky M1E 1P5';
-      }
-      var latLong = {},
-          addressRegex = /([0-9]*\s*?[0-9\/]*?)(?:\s*)([A-Za-z.\s]*(?=[A-Za-z][0-9][A-Za-z](?:\s)?[0-9][A-Za-z][0-9]))([A-Za-z][0-9][A-Za-z])(?:\s)?([0-9][A-Za-z][0-9])/,
-          addressArray = address.match( addressRegex );
-
-      if ( addressArray ) {
-        var streetNumber = addressArray[ 1 ].trim().replace(/\s{2,}/g, ' '),
-            streetName = addressArray[ 2 ].trim().replace(/\s{2,}/g, ' '),
-            postalCode = addressArray[ 3 ] + addressArray[ 4 ],
-            geocodeURL = 'http://geocoder.ca/?' + 'stno=' + streetNumber.replace( /\//g, '%2F' ) + '&addresst=' + streetName + '&city=Toronto&province=ON&postal=' + postalCode,
-            geocodeURLEscaped = geocodeURL.replace( /\s/g, '%20' );
-      } else {
-        if( !addressArray ) {
-          console.log( 'getLatLong failed for the following address:\n' + address );
-        }
-      }
-
-      // request( geocodeURLEscaped, function( error, response, body ) {
-
-      // } );
-
-// var latLong = {};
-      // latLong.latitude = 0;
-      latLong.longitude = 0;
-
-      return latLong;
-    }
-
     function requestURL( url ) {
       request( url, function( error, resp, body ) {
         if ( !error ) {
@@ -334,45 +301,75 @@ function swimTOUpdate( venueListURLs ) {
             }
 
             function createVenue() {
-              var latLong;
+              var address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim(),
+                  addressRegex = /([0-9]*\s*?[0-9\/]*?)(?:\s*)([A-Za-z.\s]*(?=[A-Za-z][0-9][A-Za-z](?:\s)?[0-9][A-Za-z][0-9]))([A-Za-z][0-9][A-Za-z])(?:\s)?([0-9][A-Za-z][0-9])/,
+                  addressArray;
 
-              // The second regex replaces double spaces in the description with single spaces.
-              thisVenue.description = $( '#pfrComplexDescr p' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).trim().replace( /(\s\s)/gm, ' ' );
-              thisVenue.address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim();
-              latLong = getLatLong( thisVenue.address );
-              thisVenue.latitude = latLong.latitude;
-              thisVenue.longitude = latLong.longitude;
-// console.log ( thisVenue.latitude + ', ' + thisVenue.longitude );
-              // The regex adds hyphens to phone numbers.
-              thisVenue.phone = parseInt( $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().replace( /[^0-9]/gm, '' ), 10 );
-              thisVenue.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
-              thisVenue.ward = parseInt( $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().replace( /Ward: /gm, '' ), 10 );
-              thisVenue.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace( /District: /gm, '' );
-              thisVenue.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace( /Near: /gm, '' );
-              thisVenue.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace( /TTC Information: /gm, '' ).replace( /\s\s/gm, ' ' );
-// console.log( thisVenue.address );
-              VenueModel.create(
-                {
-                  name: thisVenue.name,
-                  url: thisVenue.url,
-                  description: thisVenue.description,
-                  address: thisVenue.address,
-                  phone: thisVenue.phone || 4163384386, // Defaults to recreation department's customer service line
-                  accessibility: thisVenue.accessibility,
-                  ward: thisVenue.ward || 0, // Defaults to 0
-                  district: thisVenue.district,
-                  intersection: thisVenue.intersection,
-                  transit: thisVenue.transit,
-                  schedule: thisVenue.schedule
-                }, function( error, venue ) {
-                  if ( !error ) {
-                    // console.log( 'Created ' + venue.name );
-                    requestCallback();
-                  } else {
-                    return console.log( error );
-                  }
+              if ( address === '145 Guildwood Pky MIE 1P5' ) {
+                address = '145 Guildwood Pky M1E 1P5';
+              }
+
+              addressArray = address.match( addressRegex );
+
+              if ( addressArray ) {
+                var streetNumber = addressArray[ 1 ].trim().replace(/\s{2,}/g, ' '),
+                    streetName = addressArray[ 2 ].trim().replace(/\s{2,}/g, ' '),
+                    postalCode = addressArray[ 3 ] + addressArray[ 4 ],
+                    geocoderURL = 'http://geocoder.ca/?' + 'stno=' + streetNumber.replace( /\//g, '%2F' ) + '&addresst=' + streetName + '&city=Toronto&province=ON&postal=' + postalCode + '&geoit=XML',
+                    geocoderURLEscaped = geocoderURL.replace( /\s/g, '%20' );
+              } else {
+                if( !addressArray ) {
+                  console.log( 'getLatLong failed for the following address:\n' + address );
                 }
-              );
+              }
+
+              request.get( geocoderURLEscaped, function( error, response, body ) {
+  console.log( 'Requesting geocoding info.' );
+                $xml = cheerio.load( response.body, { xmlMode: true } );
+// console.log( $xml );
+                // The second regex replaces double spaces in the description with single spaces.
+                thisVenue.description = $( '#pfrComplexDescr p' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).trim().replace( /(\s\s)/gm, ' ' );
+                thisVenue.address = address;
+                // To deal with error on http://www.toronto.ca/parks/prd/facilities/complex/1317/
+                // Toronto Parks was emailed about the error on 6 Sept 2013
+// console.log( $xml( 'latt' ) );
+// console.log( $xml( 'longt' ) );
+                thisVenue.latitude = $xml( 'latt' ).text();
+                thisVenue.longitude = $xml( 'longt' ).text();
+                // The regex adds hyphens to phone numbers.
+                thisVenue.phone = parseInt( $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().replace( /[^0-9]/gm, '' ), 10 );
+                thisVenue.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
+                thisVenue.ward = parseInt( $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().replace( /Ward: /gm, '' ), 10 );
+                thisVenue.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace( /District: /gm, '' );
+                thisVenue.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace( /Near: /gm, '' );
+                thisVenue.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace( /TTC Information: /gm, '' ).replace( /\s\s/gm, ' ' );
+console.log( thisVenue );
+                VenueModel.create(
+                  {
+                    name: thisVenue.name,
+                    url: thisVenue.url,
+                    description: thisVenue.description,
+                    address: thisVenue.address,
+                    latitude: thisVenue.latitude,
+                    longitude: thisVenue.longitude,
+                    phone: thisVenue.phone || 4163384386, // Defaults to recreation department's customer service line
+                    accessibility: thisVenue.accessibility,
+                    ward: thisVenue.ward || 0, // Defaults to 0
+                    district: thisVenue.district,
+                    intersection: thisVenue.intersection,
+                    transit: thisVenue.transit,
+                    schedule: thisVenue.schedule
+                  }, function( error, venue ) {
+                    if ( !error ) {
+                      console.log( 'Created ' + venue.name );
+                      requestCallback();
+                    } else {
+                      return console.log( error );
+                    }
+                  }
+                );
+
+              } );
             }
             // If the venue already exists in the database, get its _id
             VenueModel.findOne( { 'name': thisVenue.name }, function( error, venue ) {
