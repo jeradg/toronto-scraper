@@ -89,6 +89,8 @@ function swimTOUpdate( venueListURLs ) {
 
   }
 
+  // ---------------------------------------------------------------------
+  // After the venue URLs are gathered, we scrape them for scheduling info
   function updateDatabase() {
     var urls = JSON.parse( fs.readFileSync( linksFile ) ).links,
         // Schema
@@ -141,7 +143,7 @@ function swimTOUpdate( venueListURLs ) {
           thisFullDate = dateObject.getFullYear() + '-' + thisMonth + '-' + thisDate,
           offset = new Date().getTimezoneOffset(),
           times = rawTimeRange.trim().split( ' - ' );
-// console.log( offset / 60 );
+
       times[ 0 ] = times[ 0 ].replace( /[a-zA-Z]*/gm, '' );
       times[ 1 ] = times[ 1 ].replace( /[a-zA-Z]*/gm, '' );
 
@@ -176,8 +178,86 @@ function swimTOUpdate( venueListURLs ) {
       if ( thisSession.startTime == 'Invalid Date' ) {
         console.log( 'ERROR - Invalid date: ' + thisFullDate + 'T' + times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ] + ':00-04:00' );
       } else {
-        activity.sessions.push( thisSession );
+        return thisSession;
       }
+    }
+
+    function updateVenue( someVenue, foundVenue ) {
+      VenueModel.update( { '_id': mongoose.Types.ObjectId( foundVenue.id ) }, { schedule: someVenue.schedule }, function( error, venue ) {
+        if ( !error ) {
+          console.log( 'Updated ' + someVenue.name );          
+          requestCallback();
+        } else {
+          return console.log( error );
+        }
+      } );
+    }
+
+    function createVenue( someVenue, $ ) {
+      var address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim(),
+          addressRegex = /([0-9]*\s*?[0-9\/]*?)(?:\s*)([A-Za-z.\s]*(?=[A-Za-z][0-9][A-Za-z](?:\s)?[0-9][A-Za-z][0-9]))([A-Za-z][0-9][A-Za-z])(?:\s)?([0-9][A-Za-z][0-9])/,
+          addressArray;
+
+      if ( address === '145 Guildwood Pky MIE 1P5' ) {
+        address = '145 Guildwood Pky M1E 1P5';
+      }
+
+      addressArray = address.match( addressRegex );
+
+      if ( addressArray ) {
+        var streetNumber = addressArray[ 1 ].trim().replace(/\s{2,}/g, ' '),
+            streetName = addressArray[ 2 ].trim().replace(/\s{2,}/g, ' '),
+            postalCode = addressArray[ 3 ] + addressArray[ 4 ],
+            geocoderURL = 'http://geocoder.ca/?' + 'stno=' + streetNumber.replace( /\//g, '%2F' ) + '&addresst=' + streetName + '&city=Toronto&province=ON&postal=' + postalCode + '&geoit=XML',
+            geocoderURLEscaped = geocoderURL.replace( /\s/g, '%20' );
+      } else {
+        if( !addressArray ) {
+          console.log( 'getLatLong failed for the following address:\n' + address );
+        }
+      }
+
+      request.get( geocoderURLEscaped, function( error, response, body ) {
+        $xml = cheerio.load( response.body, { xmlMode: true } );
+        // The second regex replaces double spaces in the description with single spaces.
+        someVenue.description = $( '#pfrComplexDescr p' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).trim().replace( /(\s\s)/gm, ' ' );
+        someVenue.address = address;
+        // To deal with error on http://www.toronto.ca/parks/prd/facilities/complex/1317/
+        // Toronto Parks was emailed about the error on 6 Sept 2013
+        someVenue.latitude = $xml( 'latt' ).text();
+        someVenue.longitude = $xml( 'longt' ).text();
+        // The regex adds hyphens to phone numbers.
+        someVenue.phone = parseInt( $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().replace( /[^0-9]/gm, '' ), 10 );
+        someVenue.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
+        someVenue.ward = parseInt( $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().replace( /Ward: /gm, '' ), 10 );
+        someVenue.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace( /District: /gm, '' );
+        someVenue.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace( /Near: /gm, '' );
+        someVenue.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace( /TTC Information: /gm, '' ).replace( /\s\s/gm, ' ' );
+        VenueModel.create(
+          {
+            name: someVenue.name,
+            url: someVenue.url,
+            description: someVenue.description,
+            address: someVenue.address,
+            latitude: someVenue.latitude,
+            longitude: someVenue.longitude,
+            phone: someVenue.phone || 4163384386, // Defaults to recreation department's customer service line
+            accessibility: someVenue.accessibility,
+            ward: someVenue.ward || 0, // Defaults to 0
+            district: someVenue.district,
+            intersection: someVenue.intersection,
+            transit: someVenue.transit,
+            schedule: someVenue.schedule
+          }, function( error, venue ) {
+            if ( !error ) {
+              console.log( 'Created ' + venue.name );
+              requestCallback();
+            } else {
+              return console.log( error );
+            }
+          }
+        );
+
+      } );
     }
 
     function requestURL( url ) {
@@ -201,7 +281,6 @@ function swimTOUpdate( venueListURLs ) {
               // The `thead` contains one blank `th` (above the column with the swim types)
               // and seven `th`s with the dates for that week.
               var dates = [],
-                  schedule = [],
                   $thisRow,
                   thisDate,
                   thisAge,
@@ -242,26 +321,30 @@ function swimTOUpdate( venueListURLs ) {
                 }
               } );
 
-              // Each `tr` contains the week's schedule for a given activity
+              // Each <tr> contains the week's schedule for a given activity
               $( this ).find( 'tbody' ).find( 'tr' ).each( function() {
                 var $thisRow = $( this ),
                     activityName = $thisRow.find( '.coursetitlecol' ).text().trim(),
-                    activityNumber;
+                    activityNumber = null;
 
                 // See if this activity is already in the schedule
-                for ( var i = 0; i < schedule.length; i++ ) {
-                  if ( activityName = schedule[ i ].activity ) return activityNumber = i;
+                if ( thisVenue.schedule.length > 0 ) {
+                  for ( var i = 0; i < thisVenue.schedule.length; i++ ) {
+                    if ( activityName === thisVenue.schedule[ i ].activity ) {
+                      activityNumber = i;
+                    }
+                  }
                 }
 
                 // If the activity isn't already in the schedule, add it
-                if ( !activityNumber ) {
-                  schedule.push( {
+                if ( activityNumber === null ) {
+                  thisVenue.schedule.push( {
                     activity: activityName,
                     age: $thisRow.find( '.courseagecol' ).length > 0 ? $( this ).find( '.courseagecol' ).text().replace( /(\(|\))/gm, '' ).replace( /([0-9])(yrs)/gm, '$1 years' ) : '',
                     sessions: []
                   } );
 
-                  activityNumber = schedule.length - 1;
+                  activityNumber = thisVenue.schedule.length - 1;
                 }
                 
                 $( this ).find( 'td' ).each( function( column ) {
@@ -279,111 +362,34 @@ function swimTOUpdate( venueListURLs ) {
                       sessionsSplit = $( this ).html().trim().split( /<br>|<br \/>/ );
 
                       for ( var i = 0; i < sessionsSplit.length; i++ ) {
-                        processTimes( dates[ column - 1 ], sessionsSplit[ i ], schedule[ activityNumber ] );
+                        var newSession = processTimes( dates[ column - 1 ], sessionsSplit[ i ], thisVenue.schedule[ activityNumber ] );
+
+                        thisVenue.schedule[ activityNumber ].sessions.push( newSession );
                       }
                     } else if ( ( $( this ).html().replace( /&nbsp;*/gm, '' ).trim().length > 0 ) && ( $( this ).text().trim().length > 0 ) ) {
-                      processTimes( dates[ column - 1 ], $( this ).text().trim(), schedule[ activityNumber ] );
+                      var newSession = processTimes( dates[ column - 1 ], $( this ).text().trim(), thisVenue.schedule[ activityNumber ] );
+
+                      thisVenue.schedule[ activityNumber ].sessions.push( newSession );
                     }
                   }
                 } );
               } );         
+            
             } );
 
-            function updateVenue( someVenue ) {
-              VenueModel.update( { '_id': mongoose.Types.ObjectId( id ) }, { schedule: thisVenue.schedule }, function( error, venue ) {
-                if ( !error ) {
-                  console.log( 'Updated ' + someVenue.name );          
-                  requestCallback();
-                } else {
-                  return console.log( error );
-                }
-              } );
-            }
-
-            function createVenue() {
-              var address = $( '.pfrComplexLocation ul li:nth-child(1)' ).text().trim(),
-                  addressRegex = /([0-9]*\s*?[0-9\/]*?)(?:\s*)([A-Za-z.\s]*(?=[A-Za-z][0-9][A-Za-z](?:\s)?[0-9][A-Za-z][0-9]))([A-Za-z][0-9][A-Za-z])(?:\s)?([0-9][A-Za-z][0-9])/,
-                  addressArray;
-
-              if ( address === '145 Guildwood Pky MIE 1P5' ) {
-                address = '145 Guildwood Pky M1E 1P5';
-              }
-
-              addressArray = address.match( addressRegex );
-
-              if ( addressArray ) {
-                var streetNumber = addressArray[ 1 ].trim().replace(/\s{2,}/g, ' '),
-                    streetName = addressArray[ 2 ].trim().replace(/\s{2,}/g, ' '),
-                    postalCode = addressArray[ 3 ] + addressArray[ 4 ],
-                    geocoderURL = 'http://geocoder.ca/?' + 'stno=' + streetNumber.replace( /\//g, '%2F' ) + '&addresst=' + streetName + '&city=Toronto&province=ON&postal=' + postalCode + '&geoit=XML',
-                    geocoderURLEscaped = geocoderURL.replace( /\s/g, '%20' );
-              } else {
-                if( !addressArray ) {
-                  console.log( 'getLatLong failed for the following address:\n' + address );
-                }
-              }
-
-              request.get( geocoderURLEscaped, function( error, response, body ) {
-  console.log( 'Requesting geocoding info.' );
-                $xml = cheerio.load( response.body, { xmlMode: true } );
-// console.log( $xml );
-                // The second regex replaces double spaces in the description with single spaces.
-                thisVenue.description = $( '#pfrComplexDescr p' ).text().replace( /(\r\n|\n|\r|\t)/gm, '' ).trim().replace( /(\s\s)/gm, ' ' );
-                thisVenue.address = address;
-                // To deal with error on http://www.toronto.ca/parks/prd/facilities/complex/1317/
-                // Toronto Parks was emailed about the error on 6 Sept 2013
-// console.log( $xml( 'latt' ) );
-// console.log( $xml( 'longt' ) );
-                thisVenue.latitude = $xml( 'latt' ).text();
-                thisVenue.longitude = $xml( 'longt' ).text();
-                // The regex adds hyphens to phone numbers.
-                thisVenue.phone = parseInt( $( '.pfrComplexLocation ul li:contains("Contact Us:")' ).text().replace( /[^0-9]/gm, '' ), 10 );
-                thisVenue.accessibility = $( '.pfrComplexLocation ul li:contains(" Accessible")' ).text().trim();
-                thisVenue.ward = parseInt( $( '.pfrComplexLocation ul li:contains("Ward:")' ).text().replace( /Ward: /gm, '' ), 10 );
-                thisVenue.district = $( '.pfrComplexLocation ul li:contains("District:")' ).text().trim().replace( /District: /gm, '' );
-                thisVenue.intersection = $( '.pfrComplexLocation ul li:contains("Near:")' ).text().trim().replace( /Near: /gm, '' );
-                thisVenue.transit = $( '.pfrComplexLocation ul li:contains("TTC Information:")' ).text().trim().replace( /TTC Information: /gm, '' ).replace( /\s\s/gm, ' ' );
-console.log( thisVenue );
-                VenueModel.create(
-                  {
-                    name: thisVenue.name,
-                    url: thisVenue.url,
-                    description: thisVenue.description,
-                    address: thisVenue.address,
-                    latitude: thisVenue.latitude,
-                    longitude: thisVenue.longitude,
-                    phone: thisVenue.phone || 4163384386, // Defaults to recreation department's customer service line
-                    accessibility: thisVenue.accessibility,
-                    ward: thisVenue.ward || 0, // Defaults to 0
-                    district: thisVenue.district,
-                    intersection: thisVenue.intersection,
-                    transit: thisVenue.transit,
-                    schedule: thisVenue.schedule
-                  }, function( error, venue ) {
-                    if ( !error ) {
-                      console.log( 'Created ' + venue.name );
-                      requestCallback();
-                    } else {
-                      return console.log( error );
-                    }
-                  }
-                );
-
-              } );
-            }
-            // If the venue already exists in the database, get its _id
-            VenueModel.findOne( { 'name': thisVenue.name }, function( error, venue ) {
+            VenueModel.findOne( { 'name': thisVenue.name }, function( error, foundVenue ) {
               if ( !error ) {
-                if ( venue ) {
-                  updateVenue( venue );
+                if ( foundVenue ) {
+                  // If the venue already exists in the database, update its schedule
+                  updateVenue( thisVenue, foundVenue );
                 } else {
-                  createVenue();
+                  // Otherwise, create it
+                  createVenue( thisVenue, $ );
                 }
               } else {
                 return console.log( error );
               }
             } );
-            // If the venue already exists in the database, update its schedule
 
           } else {
             // If there are no drop-in swimming programmes, fire the request callback
@@ -411,9 +417,6 @@ console.log( thisVenue );
                    '------------------------------\n' +
                    'Scrape completed.\n' );
 
-// FOR TESTING: Drop the collection after adding it
-mongoose.connection.db.dropCollection( 'venues' );
-      
       mongoose.connection.close();
     }
 
