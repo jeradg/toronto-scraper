@@ -23,7 +23,6 @@ The repo includes a sample config file, appropriately named ``sample-config.json
 ```
 {
   "db": "mongodb://my_database_path",
-  "collection": "swimto",
   "venueListURLs": [ 
                      "http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm",
                      "http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm",

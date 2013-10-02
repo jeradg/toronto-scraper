@@ -21,8 +21,7 @@ function swimTOUpdate() {
       tempLinksFile = tempPath + prefix + 'links_' + suffix + '_TEMP.json',
       linksFile =  linksPath + prefix + 'links_' + suffix + '.json',
       venueListURLs = config.venueListURLs,
-      database = config.db,
-      collection = config.collection;
+      database = config.db;
 
   function getVenueURLs( urls, callback ) {
     var json = {},
@@ -132,7 +131,7 @@ function swimTOUpdate() {
           requestURL( task.url );
           callback();
         }, 5 );
-    mongoose.connect( database + '/' + collection );
+    mongoose.connect( database );
 
     console.log( '\nScraping...\n' );
 
