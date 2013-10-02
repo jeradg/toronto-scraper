@@ -21,7 +21,8 @@ function swimTOUpdate() {
       tempLinksFile = tempPath + prefix + 'links_' + suffix + '_TEMP.json',
       linksFile =  linksPath + prefix + 'links_' + suffix + '.json',
       venueListURLs = config.venueListURLs,
-      database = config.db;
+      // If you're using Heroku and have a MongoLab URI, use that for the database. Otherwise, use the URI in config.json.
+      database = process.env.MONGOLAB_URI || config.db;
 
   function getVenueURLs( urls, callback ) {
     var json = {},
