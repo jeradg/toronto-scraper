@@ -2,28 +2,27 @@ var cheerio = require( 'cheerio' ),
     request = require( 'request' ),
     async = require( 'async' ),
     fs = require( 'fs' ),
-    mongoose = require( 'mongoose' ),
     // longjohn = require( 'longjohn' ), // Increases length of the stack trace. Helpful for debugging memory leaks.
-    venueListURLs = [ 'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm',
-                      'http://www.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm',
-                      'http://www.toronto.ca/parks/prd/facilities/indoor-pools/index.htm',
-                      'http://www.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm' ];
+    mongoose = require( 'mongoose' );
 
-function swimTOUpdate( venueListURLs ) {
-  var scrapeStartedDate = new Date(),
+function swimTOUpdate() {
+  var crawlStartedDate = new Date(),
+      config = JSON.parse( fs.readFileSync( 'config.json' ) ),
       rootPath = 'output/',
       tempPath = rootPath + 'temp/',
       linksPath = rootPath + 'links/',
-      dataPath = rootPath + 'data/',
       prefix = 'swimto_',
-      suffix = scrapeStartedDate.getFullYear() + '_'
-               + ( scrapeStartedDate.getMonth() + 1 ) + '_'
-               + scrapeStartedDate.getDate() + '_'
-               + ( scrapeStartedDate.getHours() > 10 ? scrapeStartedDate.getHours() : '0' + scrapeStartedDate.getHours() )
-               + ( scrapeStartedDate.getMinutes() > 10 ? scrapeStartedDate.getMinutes() : '0' + scrapeStartedDate.getMinutes() )
-               + ( scrapeStartedDate.getSeconds() > 10 ? scrapeStartedDate.getSeconds() : '0' + scrapeStartedDate.getSeconds() );
+      suffix = crawlStartedDate.getFullYear() + '_'
+               + ( crawlStartedDate.getMonth() + 1 ) + '_'
+               + crawlStartedDate.getDate() + '_'
+               + ( crawlStartedDate.getHours() > 10 ? crawlStartedDate.getHours() : '0' + crawlStartedDate.getHours() )
+               + ( crawlStartedDate.getMinutes() > 10 ? crawlStartedDate.getMinutes() : '0' + crawlStartedDate.getMinutes() )
+               + ( crawlStartedDate.getSeconds() > 10 ? crawlStartedDate.getSeconds() : '0' + crawlStartedDate.getSeconds() );
       tempLinksFile = tempPath + prefix + 'links_' + suffix + '_TEMP.json',
-      linksFile =  linksPath + prefix + 'links_' + suffix + '.json';
+      linksFile =  linksPath + prefix + 'links_' + suffix + '.json',
+      venueListURLs = config.venueListURLs,
+      database = config.db,
+      collection = config.collection;
 
   function getVenueURLs( urls, callback ) {
     var json = {},
@@ -55,8 +54,8 @@ function swimTOUpdate( venueListURLs ) {
       } );
     }
 
-    // If all of the URLs have been scraped, finish processing.
-    // If there are still URLs to scrape, increment the counter.
+    // If all of the URLs have been crawled, finish processing.
+    // If there are still URLs to crawl, increment the counter.
     function requestCallback() {
       if ( callbackCounter === urls.length - 1 ) {
         finish();
@@ -74,11 +73,11 @@ function swimTOUpdate( venueListURLs ) {
       json.links = links;
 
       var outputFile = fs.createWriteStream( linksFile ),
-          scrapeCompletedDate = new Date();
+          crawlCompletedDate = new Date();
 
       outputFile.on( 'open', function( fd ) {
-        json[ 'scrapeStarted' ] = scrapeStartedDate.toISOString();
-        json[ 'scrapeCompleted' ] = scrapeCompletedDate.toISOString()
+        json[ 'crawlStarted' ] = crawlStartedDate.toISOString();
+        json[ 'crawlCompleted' ] = crawlCompletedDate.toISOString()
         outputFile.write( JSON.stringify( json ) );
         callback();
       } );
@@ -88,7 +87,7 @@ function swimTOUpdate( venueListURLs ) {
   }
 
   // ---------------------------------------------------------------------
-  // After the venue URLs are gathered, we scrape them for scheduling info
+  // After the venue URLs are gathered, we crawl them for scheduling info
   function updateDatabase() {
     var urls = JSON.parse( fs.readFileSync( linksFile ) ).links,
         // Schema
@@ -125,7 +124,7 @@ function swimTOUpdate( venueListURLs ) {
         // Toronto.ca posts days of the week as these abbreviations.
         // We use these in requestURL() to determine if a particular date is this year, last year or next year.
         daysOfTheWeek = [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ],
-        thisYear = scrapeStartedDate.getFullYear(),
+        thisYear = crawlStartedDate.getFullYear(),
         lastYear = thisYear - 1,
         nextYear = thisYear + 1,
         callbackCounter = 0, //,
@@ -133,7 +132,7 @@ function swimTOUpdate( venueListURLs ) {
           requestURL( task.url );
           callback();
         }, 5 );
-    mongoose.connect( 'mongodb://localhost/toapi' );
+    mongoose.connect( database + '/' + collection );
 
     console.log( '\nScraping...\n' );
 
@@ -412,8 +411,8 @@ function swimTOUpdate( venueListURLs ) {
       } );
     }
 
-    // If all of the URLs have been scraped, finish processing.
-    // If there are still URLs to scrape, increment the counter.
+    // If all of the URLs have been crawled, finish processing.
+    // If there are still URLs to crawl, increment the counter.
     function requestCallback() {
       if ( callbackCounter === urls.length - 1 ) {
         finish();
@@ -440,4 +439,4 @@ function swimTOUpdate( venueListURLs ) {
 
 }
 
-swimTOUpdate( venueListURLs );
+swimTOUpdate();

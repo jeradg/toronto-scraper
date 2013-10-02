@@ -3,3 +3,4 @@
 swimTO_data_*.json
 swimTO_links_*.json
 node_modules
+config.json
