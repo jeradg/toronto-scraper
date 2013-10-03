@@ -7,7 +7,6 @@ var cheerio = require( 'cheerio' ),
 
 function swimTOUpdate() {
   var crawlStartedDate = new Date(),
-      config = JSON.parse( fs.readFileSync( 'config.json' ) ),
       rootPath = 'output/',
       tempPath = rootPath + 'temp/',
       linksPath = rootPath + 'links/',
@@ -20,9 +19,9 @@ function swimTOUpdate() {
                + ( crawlStartedDate.getSeconds() > 10 ? crawlStartedDate.getSeconds() : '0' + crawlStartedDate.getSeconds() );
       tempLinksFile = tempPath + prefix + 'links_' + suffix + '_TEMP.json',
       linksFile =  linksPath + prefix + 'links_' + suffix + '.json',
-      venueListURLs = config.venueListURLs,
-      // If you're using Heroku and have a MongoLab URI, use that for the database. Otherwise, use the URI in config.json.
-      database = process.env.MONGOLAB_URI || config.db;
+      venueListURLs = JSON.parse( fs.readFileSync( 'venueListURLs.json' ) ).venueListURLs,
+      // If you're using Heroku and have a MongoLab or MongoHQ URI, use that for the database. Otherwise, connect to localhost.
+      database = process.env.MONGOLAB_URI || process.env.MONGOHQ_URI || 'mongodb://localhost/swimto';
 
   function getVenueURLs( urls, callback ) {
     var json = {},
@@ -88,7 +87,7 @@ function swimTOUpdate() {
 
   // ---------------------------------------------------------------------
   // After the venue URLs are gathered, we crawl them for scheduling info
-  function updateDatabase() {
+  function updateDatabase( urls ) {
     var urls = JSON.parse( fs.readFileSync( linksFile ) ).links,
         // Schema
         Venue = new mongoose.Schema( {
