@@ -2,6 +2,7 @@ var cheerio = require( 'cheerio' ),
     request = require( 'request' ),
     async = require( 'async' ),
     fs = require( 'fs' ),
+    path = require('path'),
     // longjohn = require( 'longjohn' ), // Increases length of the stack trace. Helpful for debugging memory leaks.
     mongoose = require( 'mongoose' );
 
@@ -19,7 +20,7 @@ function swimTOUpdate() {
                + ( crawlStartedDate.getSeconds() > 10 ? crawlStartedDate.getSeconds() : '0' + crawlStartedDate.getSeconds() );
       tempLinksFile = tempPath + prefix + 'links_' + suffix + '_TEMP.json',
       linksFile =  linksPath + prefix + 'links_' + suffix + '.json',
-      venueListURLs = JSON.parse( fs.readFileSync( 'venueListURLs.json' ) ).venueListURLs,
+      venueListURLs = JSON.parse( fs.readFileSync( path.resolve( __dirname, 'venueListURLs.json' ) ) ).venueListURLs,
       // If you're using Heroku and have a MongoLab or MongoHQ URI, use that for the database. Otherwise, connect to localhost.
       database = process.env.MONGOLAB_URI || process.env.MONGOHQ_URI || 'mongodb://localhost/swimto';
 
