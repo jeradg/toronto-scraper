@@ -8,7 +8,7 @@ var cheerio = require( 'cheerio' ),
 
 function swimTOUpdate() {
   var crawlStartedDate = new Date(),
-      rootPath = 'output/',
+      rootPath = path.resolve( __dirname, 'output' ) + '/',
       tempPath = rootPath + 'temp/',
       linksPath = rootPath + 'links/',
       prefix = 'swimto_',
