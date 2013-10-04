@@ -86,7 +86,8 @@ function swimTOUpdate() {
 
   }
 
-  // ---------------------------------------------------------------------
+///////////////////////////////////////////////////////////////////////////////
+
   // After the venue URLs are gathered, we crawl them for scheduling info
   function updateDatabase( urls ) {
     var urls = JSON.parse( fs.readFileSync( linksFile ) ).links,
@@ -127,14 +128,12 @@ function swimTOUpdate() {
         thisYear = crawlStartedDate.getFullYear(),
         lastYear = thisYear - 1,
         nextYear = thisYear + 1,
-        callbackCounter = 0, //,
+        callbackCounter = 0,
+        // Create the queue
         q = async.queue( function( task, callback ) {
           requestURL( task.url );
           callback();
         }, 5 );
-    mongoose.connect( database );
-
-    console.log( '\nScraping...\n' );
 
     function processTimes( dateObject, rawTimeRange, activity ) {
       var thisSession = {},
@@ -428,11 +427,22 @@ function swimTOUpdate() {
       mongoose.connection.close();
     }
 
-    var urlsQueue = urls.slice( 0 ); // Creates a shallow copy of the `urls` array
-    for ( var i = 0; i < urls.length; i++ ) {
-      q.push( { url: urls[ i ] } );
-    }
+    mongoose.connect( database );
 
+    console.log( '\nScraping...\n' );
+
+    // Remove existing venues from the db. Once they've been removed, repopulate the database.
+    VenueModel.remove( function( error ) {
+      if ( !error ) {
+        var urlsQueue = urls.slice( 0 ); // Creates a shallow copy of the `urls` array
+        
+        for ( var i = 0; i < urls.length; i++ ) {
+          q.push( { url: urls[ i ] } );
+        }
+      } else {
+        return console.log( 'ERROR: Couldn\'t remove the collection. There was the following error: \n' + error );
+      }
+    } );
   }
 
   getVenueURLs( venueListURLs, updateDatabase );
