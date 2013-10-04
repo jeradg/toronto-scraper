@@ -22,7 +22,7 @@ function swimTOUpdate() {
       linksFile =  linksPath + prefix + 'links_' + suffix + '.json',
       venueListURLs = JSON.parse( fs.readFileSync( path.resolve( __dirname, 'venueListURLs.json' ) ) ).venueListURLs,
       // If you're using Heroku and have a MongoLab or MongoHQ URI, use that for the database. Otherwise, connect to localhost.
-      database = process.env.MONGOLAB_URI || process.env.MONGOHQ_URI || 'mongodb://localhost/swimto';
+      database = process.env.MONGOLAB_URI || process.env.MONGOHQ_URI || 'mongodb://localhost/toapi';
 
   function getVenueURLs( urls, callback ) {
     var json = {},
