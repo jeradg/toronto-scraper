@@ -24,6 +24,88 @@ function swimTOUpdate() {
       // If you're using Heroku and have a MongoLab or MongoHQ URI, use that for the database. Otherwise, connect to localhost.
       database = process.env.MONGOLAB_URI || process.env.MONGOHQ_URI || 'mongodb://localhost/toapi';
 
+  function getWeekNumber( date ) {
+  /* Based on http://stackoverflow.com/a/6117889/2140241
+   * ---------------------------------------------------
+   * For a given date, get the ISO week number
+   *
+   * Based on information at:
+   *
+   *    http://www.merlyn.demon.co.uk/weekcalc.htm#WNR
+   *
+   * Algorithm is to find nearest Thursday, it's year
+   * is the year of the week number. Then get weeks
+   * between that date and the first day of that year.
+   *
+   * Note that dates in one year can be weeks of previous
+   * or next year, overlap is up to 3 days.
+   *
+   * e.g. 2014/12/29 is Monday in week  1 of 2015
+   *      2012/1/1   is Sunday in week 52 of 2011
+   */
+    var dateCopy = new Date( date ),
+        yearStart,
+        weekNumber,
+        nearestThursday,
+        sunday;
+    
+    dateCopy.setHours( 0, 0, 0 );
+
+    // Set nearestThursday: current date + 4 - current day number
+    nearestThursday = new Date( dateCopy );
+    nearestThursday.setDate( dateCopy.getDate() + 4 - dateCopy.getDay() );
+    
+    // Set sunday
+    sunday = new Date( nearestThursday );
+    sunday.setDate( nearestThursday.getDate() - 4 );
+    
+    // Get first day of year
+    yearStart = new Date( nearestThursday.getFullYear(), 0, 1 );
+    
+    // Calculate full weeks from first day of year to nearest Thursday
+    weekNumber = Math.ceil( ( ( ( nearestThursday - yearStart ) / 86400000 ) + 1 ) / 7 )
+    
+    // Return array of year, week number, and the first date in the week (Sunday's date object)
+    return [ yearStart.getFullYear(), weekNumber, sunday ];
+  }
+
+  // Constructor for week objects
+  function Week( someYear, weekNumber, sunday ) {
+    var newDate,
+        i;
+
+    this.year = someYear;
+    this.weekNumber = weekNumber;
+    // The days array contains 7 arrays, for the 7 days of the week. Sunday is days[ 0 ].
+    this.days = [];
+
+    // Add Day objects to the days array for each day in the week.
+    for ( i = 0; i < 7; i++ ) {
+      // Set newDate to the week's Sunday
+      newDate = new Date( sunday );
+      // Then, set newDate to be Sunday's date plus this day of the week's number 
+      // (e.g., 0 for Sunday, 1 for Monday, etc.)
+      newDate.setDate( sunday.getDate() + i );
+      // Add the new Day object to the array
+      this.days.push( new Day( newDate ) );
+    }
+  }
+
+  // Constructor for day objects
+  function Day( dateObject ) {
+    this.year = dateObject.getFullYear();
+    this.month = dateObject.getMonth(); // Between 0-11
+    this.date = dateObject.getDate(); // Between 1-31
+    this.activities = [];
+  }
+
+  // Constructor for activity objects
+  function Activity( activityName, age ) {
+    this.activity = activityName;
+    this.age = age || undefined;
+    this.sessions = [];
+  }
+
   function getVenueURLs( urls, callback ) {
     var json = {},
         callbackCounter = 0,
@@ -110,12 +192,21 @@ function swimTOUpdate() {
           district: String,
           intersection: String,
           transit: String,
-          schedule: [ { 
-            activity: String,
-            age: String,
-            sessions: [ {
-              startTime: Date,
-              endTime: Date
+          schedule: [ { // The schedule is an array of weeks
+            year: Number, // This is the year associated with the week number. The last week of the year can contain days that are part of the previous calendar year; likewise, the first week of the year does not always in include the first days of that calendar year.
+            weekNumber: Number,
+            days: [ {
+              year: Number,
+              month: Number,
+              date: Number,
+              activities: [ {
+                activity: String,
+                age: String,
+                sessions: [ { // sessions are sub-models
+                  startTime: String, // A time in the 24-hour clock, e.g. '09:00'
+                  endTime: String // A time in the 24-hour clock
+                } ]
+              } ]
             } ]
           } ]
         } ),
@@ -174,13 +265,13 @@ function swimTOUpdate() {
         }
       }
 
-      thisSession.startTime = new Date( thisFullDate + 'T' + times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ] + ':00-04:00' );
-      thisSession.endTime = new Date( thisFullDate + 'T' + times[ 1 ][ 0 ] + ':' + times[ 1 ][ 1 ] + ':00-04:00' );
-      if ( thisSession.startTime == 'Invalid Date' ) {
-        console.log( 'ERROR - Invalid date: ' + thisFullDate + 'T' + times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ] + ':00-04:00' );
-      } else {
+      thisSession.startTime = times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ];
+      thisSession.endTime = times[ 1 ][ 0 ] + ':' + times[ 1 ][ 1 ];
+      // if ( thisSession.startTime == 'Invalid Date' ) {
+      //   console.log( 'ERROR - Invalid date: ' + thisFullDate + 'T' + times[ 0 ][ 0 ] + ':' + times[ 0 ][ 1 ] + ':00-04:00' );
+      // } else {
         return thisSession;
-      }
+      // }
     }
 
     function updateVenue( someVenue, foundVenue ) {
@@ -273,7 +364,8 @@ function swimTOUpdate() {
 
           var $ = cheerio.load( body ),
               thisVenue = {},
-              id = undefined;
+              id = undefined,
+              thisWeekIndex = 0;
 
           // Only gather information about venues with drop-in swimming (as opposed to registration-only programmes)
           if ( $( '[id^="dropin_Swimming"]' ).length > 0 ) {
@@ -288,6 +380,8 @@ function swimTOUpdate() {
               // The `thead` contains one blank `th` (above the column with the swim types)
               // and seven `th`s with the dates for that week.
               var dates = [],
+                  thisWeek,
+                  weekNumberArray,
                   $thisRow,
                   thisDate,
                   thisAge,
@@ -327,35 +421,19 @@ function swimTOUpdate() {
                   dates.push( date );
                 }
               } );
+              
+              weekNumberArray = getWeekNumber( dates[ 0 ] );
+              thisWeek = new Week( weekNumberArray[ 0 ], weekNumberArray[ 1 ], weekNumberArray[ 2 ] );
+              thisVenue.schedule.push( thisWeek );
 
               // Each <tr> contains the week's schedule for a given activity
-              $( this ).find( 'tbody' ).find( 'tr' ).each( function() {
+              $( this ).find( 'tbody' ).find( 'tr' ).each( function( row ) {
+
                 var $thisRow = $( this ),
                     activityName = $thisRow.find( '.coursetitlecol' ).text().trim(),
-                    activityNumber = null;
+                    thisAge = $thisRow.find( '.courseagecol' ).length > 0 ? $( this ).find( '.courseagecol' ).text().replace( /(\(|\))/gm, '' ).replace( /([0-9])(yrs)/gm, '$1 years' ) : '';
 
-                // See if this activity is already in the schedule
-                if ( thisVenue.schedule.length > 0 ) {
-                  for ( var i = 0; i < thisVenue.schedule.length; i++ ) {
-                    if ( activityName === thisVenue.schedule[ i ].activity ) {
-                      activityNumber = i;
-                    }
-                  }
-                }
-
-                // If the activity isn't already in the schedule, add it
-                if ( activityNumber === null ) {
-                  thisVenue.schedule.push( {
-                    activity: activityName,
-                    age: $thisRow.find( '.courseagecol' ).length > 0 ? $( this ).find( '.courseagecol' ).text().replace( /(\(|\))/gm, '' ).replace( /([0-9])(yrs)/gm, '$1 years' ) : '',
-                    sessions: []
-                  } );
-
-                  activityNumber = thisVenue.schedule.length - 1;
-                }
-                
                 $( this ).find( 'td' ).each( function( column ) {
-                  // Regexes to format age restrictions
 
                   if ( $( this ).find( '.coursetitlecol' ).length > 0 ) {
                     return true; // Skips to next object in .each() loop
@@ -366,22 +444,27 @@ function swimTOUpdate() {
                     if ( ( $( this ).find( 'br' ) ) && ( $( this ).html().trim().split( /<br>|<br \/>/ ).length > 1 ) ) {
                       // If the result of splitting on <br>s is more than one array item, 
                       // each array item is a session.
+                      var theseActivities = thisVenue.schedule[ thisWeekIndex ].days[ column - 1 ].activities;
                       sessionsSplit = $( this ).html().trim().split( /<br>|<br \/>/ );
 
-                      for ( var i = 0; i < sessionsSplit.length; i++ ) {
-                        var newSession = processTimes( dates[ column - 1 ], sessionsSplit[ i ], thisVenue.schedule[ activityNumber ] );
+                      theseActivities.push( new Activity( activityName, thisAge ) );
 
-                        thisVenue.schedule[ activityNumber ].sessions.push( newSession );
+                      for ( var i = 0; i < sessionsSplit.length; i++ ) {
+                        var newSession = processTimes( dates[ column - 1 ], sessionsSplit[ i ], thisVenue.schedule[ thisWeekIndex ] );
+                        theseActivities[ theseActivities.length - 1 ].sessions.push( newSession );
                       }
                     } else if ( ( $( this ).html().replace( /&nbsp;*/gm, '' ).trim().length > 0 ) && ( $( this ).text().trim().length > 0 ) ) {
-                      var newSession = processTimes( dates[ column - 1 ], $( this ).text().trim(), thisVenue.schedule[ activityNumber ] );
+                      var newSession = processTimes( dates[ column - 1 ], $( this ).text().trim(), thisVenue.schedule[ thisWeekIndex ] ),
+                          theseActivities = thisVenue.schedule[ thisWeekIndex ].days[ column - 1 ].activities;
 
-                      thisVenue.schedule[ activityNumber ].sessions.push( newSession );
+                      theseActivities.push( new Activity( activityName, thisAge ) );
+                      theseActivities[ theseActivities.length - 1 ].sessions.push( newSession );
                     }
                   }
                 } );
               } );         
-            
+
+              thisWeekIndex++;
             } );
 
             VenueModel.findOne( { 'name': thisVenue.name }, function( error, foundVenue ) {
