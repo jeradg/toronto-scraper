@@ -7,9 +7,10 @@ var chai = require( 'chai' ),
     server = require( './testServer' ),
     port = 7345,
     // tempPath = path.resolve( __dirname, 'temp/' ),
-    getURLs = require( '../lib/getURLs' );
+    getURLs = require( '../lib/getURLs' ),
+    scrapeVenue = require( '../lib/scrapeVenue' );
 
-describe( 'scraper', function() {
+describe( 'swimTO scraper', function() {
   before( function( done ) {
     server( port, done );
   } );
@@ -50,7 +51,7 @@ describe( 'scraper', function() {
       getURLs( urls, callback );
     } );
 
-    it( 'gets the URLs from a page with a list of venue pages', function( done ) {
+    it( 'should return the URLs from a page with a list of venue pages', function( done ) {
       var urls = [
             'http://localhost:' + port + '/outdoorPools.html',
             'http://localhost:' + port + '/indoorPools.html'
@@ -65,6 +66,19 @@ describe( 'scraper', function() {
           }
 
       getURLs( urls, callback );
+    } );
+  } );
+
+  describe( 'scrapeVenue', function() {
+    it( 'should return a venue object with the correct values', function( done ) {
+      var url = 'http://localhost:' + port + '/venue1.html',
+          callback = function( err, venue ) {
+            expect( err ).to.equal( null );
+
+            expect( venue ).to.be.an( 'object' );
+
+            done();
+          }
     } );
   } );
 } );

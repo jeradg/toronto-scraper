@@ -1,8 +1,6 @@
-{
-  "venueListURLs": [ 
-    "http://www1.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm",
-    "http://www1.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm",
-    "http://www1.toronto.ca/parks/prd/facilities/indoor-pools/index.htm",
-    "http://www1.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm"
-  ]
-}
+[ 
+  "http://www1.toronto.ca/parks/prd/facilities/outdoor-pools/index.htm",
+  "http://www1.toronto.ca/parks/prd/facilities/outdoor-pools/2-outdoor_pool.htm",
+  "http://www1.toronto.ca/parks/prd/facilities/indoor-pools/index.htm",
+  "http://www1.toronto.ca/parks/prd/facilities/indoor-pools/2-indoor_pool.htm"
+]

@@ -1,24 +1,26 @@
-/* index.js */
-
 /* Uncomment the following two lines if debugging Mongoose. */
 // var mongoose = require( 'mongoose' );
 // mongoose.set( 'debug', true );
 
 var path = require( 'path' ),
-    argv = require( 'minimist' )( process.argv.slice( 2 ), {
-    // User can pass an optional -e/--email flag when executing
-    // from the command line. If present, the update module will
-    // send a summary of 
-      alias: {
-        e: 'email'
-      },
-      default: {
-        e: false
-      }
-    } ),
-    swimTO = require( './lib/swimTO' ),
-    urlsList = path.resolve( __dirname, 'venueListURLs.json' );
+    fs = require( 'fs' ),
+    scraper = require( './lib/scraper' );
 
-module.exports = swimTO;
+module.exports = scraper;
 
-swimTO().update( urlsList, { email: argv.e } );
+if ( require.main === module ) {
+  // If run from the command line, accepts one optional argument,
+  // the path to a JSON file containing an array of URLs.
+  // If no arguments given, uses a default path.
+  var args = process.argv.slice( 2 ),
+      indexURLsPath = args[ 0 ] ? args[ 0 ] : path.resolve( __dirname, 'venueListURLs.json' ),
+      urlsList = JSON.parse( fs.readFileSync( indexURLsPath ) );
+
+  scraper( urlsList, function( err ) {
+    if ( err ) {
+      console.log( 'Scrape failed with the following error: ', err );
+    } else {
+      console.log( 'Scrape completed with no errors.' )
+    }
+  } );
+}
