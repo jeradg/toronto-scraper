@@ -5,7 +5,7 @@ var chai = require( 'chai' ),
     cleanVenueName = require( '../lib/helpers/cleanVenueName' ),
     cleanDate = require( '../lib/helpers/cleanDate' );
 
-describe.only( 'swimTO helpers', function() {
+describe( 'swimTO helpers', function() {
   describe( 'dateHelpers', function() {
 
   } );

@@ -7,7 +7,7 @@ var chai = require( 'chai' ),
     server = require( './testServer' ),
     port = 7345,
     // tempPath = path.resolve( __dirname, 'temp/' ),
-    getURLs = require( '../lib/getURLs' ),
+    getVenueURLs = require( '../lib/getVenueURLs' ),
     scrapeVenue = require( '../lib/scrapeVenue' );
 
 describe( 'swimTO scraper', function() {
@@ -15,7 +15,7 @@ describe( 'swimTO scraper', function() {
     server( port, done );
   } );
 
-  describe( 'getURLs', function() {
+  describe( 'getVenueURLs', function() {
     it( 'should return an error when passed a first argument that isn\'t an array', function( done ) {
       var urls = { 'foo': 'bar' },
           callback = function( err, venueURLs ) {
@@ -24,7 +24,7 @@ describe( 'swimTO scraper', function() {
             done();
           }
 
-      getURLs( urls, callback );
+      getVenueURLs( urls, callback );
     } );
 
     it( 'should return an error when passed an empty array', function( done ) {
@@ -35,7 +35,7 @@ describe( 'swimTO scraper', function() {
             done();
           }
 
-      getURLs( urls, callback );
+      getVenueURLs( urls, callback );
     } );
 
     it( 'should return an error when passed a website with no valid links', function( done ) {
@@ -48,7 +48,7 @@ describe( 'swimTO scraper', function() {
             done();
           }
 
-      getURLs( urls, callback );
+      getVenueURLs( urls, callback );
     } );
 
     it( 'should return the URLs from a page with a list of venue pages', function( done ) {
@@ -62,10 +62,12 @@ describe( 'swimTO scraper', function() {
             expect( venueURLs ).to.be.an( 'array' );
             expect( venueURLs.length ).to.equal( 20 );
 
+            // TODO: Add more stringent expectations here
+
             done();
           }
 
-      getURLs( urls, callback );
+      getVenueURLs( urls, callback );
     } );
   } );
 
@@ -76,9 +78,37 @@ describe( 'swimTO scraper', function() {
             expect( err ).to.equal( null );
 
             expect( venue ).to.be.an( 'object' );
+            expect( venue.name ).to.equal( 'North Toronto Memorial Community Centre' );
+            expect( venue.url ).to.equal( url );
+            expect( venue.address ).to.equal( '200 Eglinton Ave W M4R 1A7' );
+            expect( venue.phone ).to.equal( '416-392-6591' );
+            expect( venue.type ).to.equal( 'indoor and outdoor' );
+            expect( venue.normalizedUrl ).to.equal( 'north-toronto-memorial-community-centre' );
+            expect( venue.schedule ).to.be.an( 'array' );
+            expect( venue.schedule.length ).to.equal( 159 );
+
+            for ( var i = 0; i < venue.schedule.length; i++ ) {
+              expect( venue.schedule[ i ].start ).to.be.an.instanceOf( Date );
+              expect( venue.schedule[ i ].end ).to.be.an.instanceOf( Date );
+              expect( venue.schedule[ i ].start ).to.be.below( venue.schedule[ i ].end );
+            }
 
             done();
           }
+
+      scrapeVenue( url, callback );
     } );
+  } );
+
+  describe( 'createVenue', function() {
+  } );
+
+  describe( 'updateVenue', function() {
+  } );
+
+  describe( 'writeVenue', function() {
+  } );
+
+  describe( 'updateMetadata', function() {
   } );
 } );
