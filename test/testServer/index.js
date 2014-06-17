@@ -8,7 +8,7 @@ function server( port, callback ) {
       express           = require( 'express' ),
       slash             = require( 'express-slash' ),
       path              = require( 'path' ),
-      // mongoose          = require( 'mongoose' ),
+      mongoose          = require( 'mongoose' ),
       app               = express(),
       static_directory  = path.resolve( __dirname, 'test_pages/' ),
       node_env          = 'development',
@@ -39,18 +39,18 @@ function server( port, callback ) {
     app.use( express.errorHandler( { dumpExceptions: true, showStack: true } ) );
   } );
 
- // // Connect to the database
- //  mongoose.connect( dbURI, function( err, res ) {
- //    if ( err ) { 
- //      console.log ( 'ERROR connecting to database. ' + err );
- //    } else {
- //      console.log ( 'Connected to database. Press CTRL-C to exit.' );
+ // Connect to the database
+  mongoose.connect( dbURI, function( err, res ) {
+    if ( err ) { 
+      console.log ( 'ERROR connecting to database. ' + err );
+    } else {
+      console.log ( 'Connected to database. Press CTRL-C to exit.' );
 
- //     // Start the server
+     // Start the server
       app.listen( port, function() {
         console.log( 'Express server running on port ' + port + '.' );
         callback();
       } );
-  //   }
-  // } );
+    }
+  } );
 }

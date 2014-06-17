@@ -82,6 +82,10 @@ describe( 'swimTO scraper', function() {
             expect( venue.url ).to.equal( url );
             expect( venue.address ).to.equal( '200 Eglinton Ave W M4R 1A7' );
             expect( venue.phone ).to.equal( '416-392-6591' );
+            expect( venue.ward ).to.equal( 16 );
+            expect( venue.location ).to.be.an( 'object' );
+            expect( venue.location.coordinates[ 0 ] ).to.be.a( 'number' );
+            expect( venue.location.coordinates[ 1 ] ).to.be.a( 'number' );
             expect( venue.type ).to.equal( 'indoor and outdoor' );
             expect( venue.normalizedUrl ).to.equal( 'north-toronto-memorial-community-centre' );
             expect( venue.schedule ).to.be.an( 'array' );
@@ -92,6 +96,19 @@ describe( 'swimTO scraper', function() {
               expect( venue.schedule[ i ].end ).to.be.an.instanceOf( Date );
               expect( venue.schedule[ i ].start ).to.be.below( venue.schedule[ i ].end );
             }
+
+            done();
+          }
+
+      scrapeVenue( url, callback );
+    } );
+
+    it( 'should call callback with an error when invalid dates provided', function( done ) {
+      var url = 'http://localhost:' + port + '/venue2.html',
+          callback = function( err, venue ) {
+            expect( err ).to.be.an.instanceOf( Error );
+
+            expect( venue ).to.equal( undefined );
 
             done();
           }

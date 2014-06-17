@@ -1,13 +1,82 @@
 var chai = require( 'chai' ),
     expect = chai.expect,
+    moment = require( 'moment-timezone' ),
     dateHelpers = require( '../lib/helpers/dateHelpers' ),
     cleanActivity = require( '../lib/helpers/cleanActivity' ),
-    cleanVenueName = require( '../lib/helpers/cleanVenueName' ),
-    cleanDate = require( '../lib/helpers/cleanDate' );
+    cleanVenueName = require( '../lib/helpers/cleanVenueName' );
 
 describe( 'swimTO helpers', function() {
   describe( 'dateHelpers', function() {
+    describe( 'cleanDate', function() {
+      it( 'should return a cleaned date as a string of format "YYYY-MM-DD"', function() {
+        var dateObject1 = new Date( 'June 9' ),
+            now = new Date(),
+            day,
+            testDate1;
 
+        dateObject1.setYear( now.getFullYear() );
+        day = dateHelpers.daysOfTheWeek[ dateObject1.getDay() ];
+        testDate1 = dateHelpers.cleanDate( day + ' Jun 09' );
+
+        expect( testDate1 ).to.be.a( 'string' );
+
+        expect( testDate1 ).to.equal( dateObject1.getFullYear() + '-06-09' );
+
+        var dateObject2 = new Date( 'August 23' ),
+            now = new Date(),
+            day,
+            testDate2;
+
+        dateObject2.setYear( now.getFullYear() - 1 );
+
+        day = dateHelpers.daysOfTheWeek[ dateObject2.getDay() ];
+
+        testDate2 = dateHelpers.cleanDate( day + ' Aug 23' );
+
+        expect( testDate2 ).to.be.a( 'string' );
+
+        expect( testDate2 ).to.equal( dateObject2.getFullYear() + '-08-23' );
+      } );
+
+      it( 'should return an error when the correct year cannot be determined from the day of the week and the date', function() {
+        // TODO
+      } );
+
+      it( 'should work properly when run from a different timezone', function() {
+        // TODO
+      } );
+    } );
+
+    describe( 'processTimes', function() {
+      it( 'should convert session times into the correct timezone and account for daylight savings', function() {
+        var date1 = moment().startOf( 'day' ),
+            times1 = dateHelpers.processTimes( date1.format( 'YYYY-MM-DD' ), '11:30am - 2pm' );
+
+        expect( times1.start ).to.be.an.instanceOf( Date );
+        expect( times1.start ).to.eql( new Date( date1.hours( 11 ).minutes( 30 ).format() ) );
+        expect( times1.end ).to.be.an.instanceOf( Date );
+        expect( times1.end ).to.eql( new Date( date1.hours( 14 ).minutes( 00 ).format() ) );
+        expect( times1.start ).to.be.below( times1.end );
+
+        var date2 = moment().startOf( 'day' ),
+            times2 = dateHelpers.processTimes( date2.format( 'YYYY-MM-DD' ), '9:45 - 10:45am' );
+
+        expect( times2.start ).to.be.an.instanceOf( Date );
+        expect( times2.start ).to.eql( new Date( date2.hours( 9 ).minutes( 45 ).format() ) );
+        expect( times2.end ).to.be.an.instanceOf( Date );
+        expect( times2.end ).to.eql( new Date( date2.hours( 10 ).minutes( 45 ).format() ) );
+        expect( times2.start ).to.be.below( times2.end );
+
+        var date3 = moment().startOf( 'day' ),
+            times3 = dateHelpers.processTimes( date3.format( 'YYYY-MM-DD' ), '2 - 5:30pm' );
+
+        expect( times3.start ).to.be.an.instanceOf( Date );
+        expect( times3.start ).to.eql( new Date( date3.hours( 14 ).minutes( 00 ).format() ) );
+        expect( times3.end ).to.be.an.instanceOf( Date );
+        expect( times3.end ).to.eql( new Date( date3.hours( 17 ).minutes( 30 ).format() ) );
+        expect( times3.start ).to.be.below( times3.end );
+      } );
+    } );
   } );
 
   describe( 'cleanActivity', function() {
@@ -309,42 +378,6 @@ describe( 'swimTO helpers', function() {
       var testName = cleanVenueName( 'West Mall Outdoor Pool - Outdoor Pool' );
 
       expect( testName ).to.equal( 'West Mall Outdoor Pool' );
-    } );
-  } );
-
-  describe( 'cleanDate', function() {
-    it( 'should return a cleaned date', function() {
-      var dateObject1 = new Date( 'June 9' ),
-          now = new Date(),
-          day,
-          testDate1;
-
-      dateObject1.setYear( now.getFullYear() );
-      day = dateHelpers.daysOfTheWeek[ dateObject1.getDay() ];
-      testDate1 = cleanDate( day + ' Jun 09' );
-
-      expect( testDate1 ).to.be.an.instanceOf( Date );
-
-      var dateObject2 = new Date( 'August 23' ),
-          now = new Date(),
-          day,
-          testDate2;
-
-      dateObject2.setYear( now.getFullYear() );
-      day = dateHelpers.daysOfTheWeek[ dateObject2.getDay() ];
-      testDate2 = cleanDate( day + ' Aug 23' );
-
-      expect( testDate2 ).to.be.an.instanceOf( Date );
-
-      expect( testDate2 ).to.be.an.instanceOf( Date );
-    } );
-
-    it( 'should work properly when run from a different timezone', function() {
-      // TODO
-    } );
-
-    it( 'should work properly when run from a different timezone', function() {
-      // TODO
     } );
   } );
 } );

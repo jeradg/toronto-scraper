@@ -18,9 +18,9 @@ if ( require.main === module ) {
 
   scraper( urlsList, function( err ) {
     if ( err ) {
-      console.log( 'Scrape failed with the following error: ', err );
+      return console.log( 'Scrape failed with the following error: ', err );
     } else {
-      console.log( 'Scrape completed with no errors.' )
+      return console.log( 'Scrape completed with no errors.' );
     }
   } );
 }
