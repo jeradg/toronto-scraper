@@ -1,10 +1,10 @@
-# swimTO
+# swimTO-scraper
 
 The City of Toronto doesn't provide an API for recreation data, so I'm making one.
 
-The back-end will include a crawler to pull recreation data from the city's website (info about drop-in swimming programmes, for now) and an API for serving the data.
+The back-end will include a scraper to pull recreation data from the city's website (info about drop-in swimming programmes, for now) and an API for serving the data.
 
-This repo includes the crawler, written in Node.js.
+This repo is the scraper, written in Node.js.
 
 ## Requirements
 
