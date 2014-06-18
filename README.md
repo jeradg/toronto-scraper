@@ -1,4 +1,4 @@
-# swimTO-scraper
+# toronto-scraper
 
 The City of Toronto doesn't provide an API for recreation data, so I'm making one.
 
