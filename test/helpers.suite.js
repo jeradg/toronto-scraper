@@ -104,6 +104,14 @@ describe( 'swimTO helpers', function() {
       expect( testActivity3[ 0 ] ).to.equal( 'Leisure Swim' );
       expect( testActivity3[ 1 ] ).to.equal( 'Preschool' );
       expect( testActivity3[ 2 ] ).to.equal( '1 year and over' );
+
+      var testActivity4 = cleanActivity( 'Youth lifeguard club' );
+
+      expect( testActivity4 ).to.be.an( 'array' );
+      expect( testActivity4.length ).to.equal( 3 );
+      expect( testActivity4[ 0 ] ).to.equal( 'Youth Lifeguard Club' );
+      expect( testActivity4[ 1 ] ).to.equal( undefined );
+      expect( testActivity4[ 2 ] ).to.equal( undefined );
     } );
 
     it( 'should correctly fix "Humber College" swims', function() {
