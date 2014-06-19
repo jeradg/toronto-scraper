@@ -345,6 +345,34 @@ describe( 'swimTO helpers', function() {
       expect( testActivity[ 1 ] ).to.equal( 'Widths' );
       expect( testActivity[ 2 ] ).to.equal( undefined );
     } );
+
+    it( 'should correctly fix "Camps Swim"', function() {
+      var testActivity = cleanActivity( 'Camps Swim' );
+
+      expect( testActivity[ 0 ] ).to.equal( 'Leisure Swim' );
+      expect( testActivity[ 1 ] ).to.equal( 'City Camps' );
+      expect( testActivity[ 2 ] ).to.equal( undefined );
+    } );
+
+    it( 'should correctly fix cases where the activity name and type are transposed', function() {
+      var testActivity1 = cleanActivity( 'Adult: Lane Swim' );
+
+      expect( testActivity1[ 0 ] ).to.equal( 'Lane Swim' );
+      expect( testActivity1[ 1 ] ).to.equal( 'Adult' );
+      expect( testActivity1[ 2 ] ).to.equal( '13 years and over' );
+
+      var testActivity2 = cleanActivity( 'All Ages: Leisure Swim' );
+
+      expect( testActivity2[ 0 ] ).to.equal( 'Leisure Swim' );
+      expect( testActivity2[ 1 ] ).to.equal( 'All Ages' );
+      expect( testActivity2[ 2 ] ).to.equal( undefined );
+
+      var testActivity3 = cleanActivity( 'Widths: Lane swim' );
+
+      expect( testActivity3[ 0 ] ).to.equal( 'Lane Swim' );
+      expect( testActivity3[ 1 ] ).to.equal( 'Widths' );
+      expect( testActivity3[ 2 ] ).to.equal( undefined );
+    } );
   } );
 
   describe( 'cleanVenueName', function() {
