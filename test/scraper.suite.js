@@ -79,7 +79,7 @@ describe( 'swimTO scraper', function() {
 
             expect( venue ).to.be.an( 'object' );
             expect( venue.name ).to.equal( 'North Toronto Memorial Community Centre' );
-            expect( venue.url ).to.equal( url );
+            expect( venue.originalUrl ).to.equal( url );
             expect( venue.address ).to.equal( '200 Eglinton Ave W M4R 1A7' );
             expect( venue.phone ).to.equal( '416-392-6591' );
             expect( venue.ward ).to.equal( 16 );
@@ -87,7 +87,7 @@ describe( 'swimTO scraper', function() {
             expect( venue.location.coordinates[ 0 ] ).to.be.a( 'number' );
             expect( venue.location.coordinates[ 1 ] ).to.be.a( 'number' );
             expect( venue.type ).to.equal( 'indoor and outdoor' );
-            expect( venue.normalizedUrl ).to.equal( 'north-toronto-memorial-community-centre' );
+            expect( venue.url ).to.equal( 'north-toronto-memorial-community-centre' );
             expect( venue.schedule ).to.be.an( 'array' );
             expect( venue.schedule.length ).to.equal( 159 );
 
