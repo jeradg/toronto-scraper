@@ -6,9 +6,8 @@ var path = require( 'path' ),
     fs = require( 'fs' ),
     minimist = require( 'minimist' ),
     mongoose = require( 'mongoose' ),
-    database = require( './lib/database' ),
+    database = require( './lib/config/database' ),
     scraper = require( './lib/scraper' );
-    updateMetadata = require( './lib/updateMetadata' );
 
 module.exports = scraper;
 
@@ -17,7 +16,7 @@ if ( require.main === module ) {
   // `-p [path]` / `--path [path]` (optional): the path to a 
   //     JSON file containing an array of URLs.
   //     (If no path is provided, uses a default path.)
-  // `-m` / '--meta' (optional): If true, only runs updateMetadata()
+  // `-m` / '--meta' (optional): If true, only runs metadataController.run()
 
   var argv = minimist( process.argv.slice( 2 ), {
     alias: {
@@ -26,6 +25,7 @@ if ( require.main === module ) {
     }
   } );
 
+  // If the -m flag is used
   if ( argv.meta ) {
     mongoose.connect( database );
 
@@ -34,7 +34,7 @@ if ( require.main === module ) {
     } );
 
     mongoose.connection.on( 'open', function() {
-      updateMetadata( function( err ) {
+      scraper.updateMetadata( function( err ) {
         if ( err ) {
           mongoose.connection.close( function() {
             return console.log( err );
@@ -50,7 +50,7 @@ if ( require.main === module ) {
     var indexURLsPath = argv.path ? argv.path : path.resolve( __dirname, 'venueListURLs.json' ),
         urlsList = JSON.parse( fs.readFileSync( indexURLsPath ) );
 
-    scraper( urlsList, function( err ) {
+    scraper.run( urlsList, function( err ) {
       if ( err ) {
         return console.log( 'Scrape failed with the following error: ', err );
       } else {

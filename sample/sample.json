@@ -8,66 +8,62 @@
         "url": "http://www.toronto.ca/parks/prd/facilities/complex/523/index.htm",
         "description": "Agincourt CRC & Leisure Pool is one of only two leisure pools in the Scarborough District providing lessons, recreation swims and birthday parties for all ages. We are home to Agincourt Lions Club, Agincourt Lawnbowling Club, Scarborough Horseshoe Club and Agincourt Tennis Club. Our programmes accomodate participants from Preschoolers to the Older Adult. Two indoor rinks provide ice for hockey and leisure skates. The centre also offers a Snoezelen Room. Please contact the centre for details.",
         "address": "31 Glen Watford Dr M1S 2B7",
-        "phone": "416 396-4037",
+        "latitude": 43.6568775,
+        "longitude": -79.32085,
+        "phone": 4163964037,
         "accessibility": "Fully Accessible",
-        "ward": "41",
+        "ward": 41,
         "district": "Scarborough",
         "intersection": "Sheppard & Midland",
         "transit": "Travel to Kennedy Station. Board the 57 Midland and travel to the farside of Rural. Walk east on Rural to 31 Glen Watford Drive.",
         "schedule": [
           {
-            "date": "2013-08-26",
-            "activities": [
+            "activity": "Lane Swim",
+            "age": "13yrs and over",
+            "sessions": [
               {
-                "activity": "Lane Swim",
-                "age": "13yrs and over",
-                "sessions": [
-                  {
-                    "startTime": "08:00",
-                    "endTime": "09:00"
-                  }
-                ]
+                "startTime": ISODate('2013-08-26T08:00:00-04:00'),
+                "endTime": ISODate('2013-08-26T09:00:00-04:00')
               },
               {
-                "activity": "Leisure Swim",
-                "sessions": [
-                  {
-                    "startTime": "14:30",
-                    "endTime": "15:00"
-                  },
-                  {
-                    "startTime": "18:30",
-                    "endTime": "21:00"
-                  }
-                ]
+                "startTime": ISODate('2013-08-27T08:00:00-04:00'),
+                "endTime": ISODate('2013-08-27T09:00:00-04:00')
+              }
+            ]
+          },  
+          {
+            "activity": "Leisure Swim",
+            "sessions": [
+              {
+                "startTime": ISODate('2013-08-26T14:30:00-04:00'),
+                "endTime": ISODate('2013-08-26T15:00:00-04:00')
               },
               {
-                "activity": "Leisure Swim: Preschool",
-                "age": "up to 5yrs",
-                "sessions": []
+                "startTime": ISODate('2013-08-26T18:30:00-04:00'),
+                "endTime": ISODate('2013-08-26T21:00:00-04:00')
+              }
+            ]
+          },
+          {
+            "activity": "Lane Swim: Older Adult",
+            "age": "60yrs and over",
+            "sessions": [
+              {
+                "startTime": ISODate('2013-08-26T09:00:00-04:00'),
+                "endTime": ISODate('2013-08-26T10:00:00-04:00')
+              }
+            ]
+          },
+          {
+            "activity": "Leisure Swim: Family",
+            "sessions": [
+              {
+                "startTime": ISODate('2013-08-26T10:00:00-04:00'),
+                "endTime": ISODate('2013-08-26T12:00:00-04:00')
               },
               {
-                "activity": "Lane Swim: Older Adult",
-                "age": "60yrs and over",
-                "sessions": [
-                  {
-                    "startTime": "09:00",
-                    "endTime": "10:00"
-                  }
-                ]
-              },
-              {
-                "activity": "Leisure Swim: Family",
-                "sessions": [
-                  {
-                    "startTime": "10:00",
-                    "endTime": "12:00"
-                  },
-                  {
-                    "startTime": "17:30",
-                    "endTime": "18:30"
-                  }
-                ]
+                "startTime": ISODate('2013-08-26T17:30:00-04:00'),
+                "endTime": ISODate('2013-08-26T18:30:00-04:00')
               }
             ]
           }
