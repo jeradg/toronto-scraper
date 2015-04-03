@@ -1,6 +1,10 @@
 {
-  "name": "swimto",
+  "name": "toronto-scraper",
   "version": "0.1.0",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/jeradg/toronto-scraper.git"
+  },
   "dependencies": {
     "async": "~0.2.9",
     "cheerio": "~0.12.1",
